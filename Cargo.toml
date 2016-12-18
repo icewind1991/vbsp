@@ -1,0 +1,7 @@
+[package]
+name = "quake3_loader"
+version = "0.1.0"
+authors = ["neild"]
+
+[dependencies]
+byteorder = "0.5.3"
