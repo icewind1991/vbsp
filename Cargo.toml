@@ -3,5 +3,10 @@ name = "quake3_loader"
 version = "0.1.0"
 authors = ["neild"]
 
+homepage = "https://github.com/neildanson/quake3_loader"
+repository = "https://github.com/neildanson/quake3_loader"
+description = "Crate for loading Quake 3 BSP files based on description given here http://www.mralligator.com/q3/"
+license = "MIT"
+
 [dependencies]
 byteorder = "0.5.3"
