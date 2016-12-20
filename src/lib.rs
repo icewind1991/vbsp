@@ -313,6 +313,93 @@ fn read_mesh_vert(cursor: &mut Cursor<Vec<u8>>) -> Result<MeshVert> {
 }
 
 #[derive(Debug)]
+pub struct Effect {
+    pub name: String,
+    pub brush: i32,
+    pub unk: i32,
+}
+
+fn read_effect(cursor: &mut Cursor<Vec<u8>>) -> Result<Effect> {
+    let mut name = Vec::new();
+    for _ in 0..64 {
+        let data = cursor.read_u8()?;
+        if data != 0u8 {
+            name.push(data);
+        }
+    }
+    let name = String::from_utf8(name).unwrap();
+    let brush = cursor.read_i32::<LittleEndian>()?;
+    let unk = cursor.read_i32::<LittleEndian>()?;
+    Ok(Effect {
+        name: name,
+        brush: brush,
+        unk: unk,
+    })
+}
+
+#[derive(Debug)]
+pub struct Face {
+    pub texture: i32,
+    pub effect: i32,
+    pub face_type: i32,
+    pub vertex: i32,
+    pub num_vertexes: i32,
+    pub mesh_vert: i32,
+    pub num_mesh_verts: i32,
+    pub lm_index: i32,
+    pub lm_start: [i32; 2],
+    pub lm_size: [i32; 2],
+    pub lm_origin: [f32; 3],
+    pub lm_vecs: [[f32; 3]; 2],
+    pub normal: [f32; 3],
+    pub size: [i32; 2],
+}
+
+fn read_face(cursor: &mut Cursor<Vec<u8>>) -> Result<Face> {
+    let texture = cursor.read_i32::<LittleEndian>()?;
+    let effect = cursor.read_i32::<LittleEndian>()?;
+    let face_type = cursor.read_i32::<LittleEndian>()?;
+    let vertex = cursor.read_i32::<LittleEndian>()?;
+    let num_vertexes = cursor.read_i32::<LittleEndian>()?;
+    let mesh_vert = cursor.read_i32::<LittleEndian>()?;
+    let num_mesh_verts = cursor.read_i32::<LittleEndian>()?;
+    let lm_index = cursor.read_i32::<LittleEndian>()?;
+    let lm_start = [cursor.read_i32::<LittleEndian>()?, cursor.read_i32::<LittleEndian>()?];
+    let lm_size = [cursor.read_i32::<LittleEndian>()?, cursor.read_i32::<LittleEndian>()?];
+    let lm_origin = [cursor.read_f32::<LittleEndian>()?,
+                     cursor.read_f32::<LittleEndian>()?,
+                     cursor.read_f32::<LittleEndian>()?];
+    let lm_vec1 = [cursor.read_f32::<LittleEndian>()?,
+                   cursor.read_f32::<LittleEndian>()?,
+                   cursor.read_f32::<LittleEndian>()?];
+    let lm_vec2 = [cursor.read_f32::<LittleEndian>()?,
+                   cursor.read_f32::<LittleEndian>()?,
+                   cursor.read_f32::<LittleEndian>()?];
+    let lm_vecs = [lm_vec1, lm_vec2];
+    let normal = [cursor.read_f32::<LittleEndian>()?,
+                  cursor.read_f32::<LittleEndian>()?,
+                  cursor.read_f32::<LittleEndian>()?];
+    let size = [cursor.read_i32::<LittleEndian>()?, cursor.read_i32::<LittleEndian>()?];
+    let face = Face {
+        texture: texture,
+        effect: effect,
+        face_type: face_type,
+        vertex: vertex,
+        num_vertexes: num_vertexes,
+        mesh_vert: mesh_vert,
+        num_mesh_verts: num_mesh_verts,
+        lm_index: lm_index,
+        lm_start: lm_start,
+        lm_size: lm_size,
+        lm_origin: lm_origin,
+        lm_vecs: lm_vecs,
+        normal: normal,
+        size: size,
+    };
+    Ok(face)
+}
+
+#[derive(Debug)]
 pub struct BSP {
     pub header: Header,
     pub dir_entries: Vec<DirEntry>,
@@ -328,6 +415,8 @@ pub struct BSP {
     pub brush_sides: Vec<BrushSide>,
     pub vertexes: Vec<Vertex>,
     pub mesh_verts: Vec<MeshVert>,
+    pub effects: Vec<Effect>,
+    pub faces: Vec<Face>,
 }
 
 pub fn read_bsp(bytes: Vec<u8>) -> Result<BSP> {
@@ -348,6 +437,8 @@ pub fn read_bsp(bytes: Vec<u8>) -> Result<BSP> {
     let brush_sides = read_entry(&mut cursor, &dir_entries[9], read_brush_side)?;
     let vertexes = read_entry(&mut cursor, &dir_entries[10], read_vertex)?;
     let mesh_verts = read_entry(&mut cursor, &dir_entries[11], read_mesh_vert)?;
+    let effects = read_entry(&mut cursor, &dir_entries[12], read_effect)?;
+    let faces = read_entry(&mut cursor, &dir_entries[13], read_face)?;
     Ok({
         BSP {
             header: header,
@@ -364,6 +455,8 @@ pub fn read_bsp(bytes: Vec<u8>) -> Result<BSP> {
             brush_sides: brush_sides,
             vertexes: vertexes,
             mesh_verts: mesh_verts,
+            effects: effects,
+            faces: faces,
         }
     })
 }
