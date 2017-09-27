@@ -1,6 +1,6 @@
 [package]
 name = "quake3_loader"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["neild"]
 
 homepage = "https://github.com/neildanson/quake3_loader"

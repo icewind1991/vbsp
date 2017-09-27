@@ -11,7 +11,7 @@ pub struct Header {
     pub p: char,
 }
 
-fn read_header(cursor: &mut Cursor<Vec<u8>>) -> Result<Header> {
+fn read_header(cursor: &mut Cursor<&[u8]>) -> Result<Header> {
     let i = cursor.read_u8()? as char;
     let b = cursor.read_u8()? as char;
     let s = cursor.read_u8()? as char;
@@ -24,7 +24,7 @@ fn read_header(cursor: &mut Cursor<Vec<u8>>) -> Result<Header> {
     })
 }
 
-fn read_version(cursor: &mut Cursor<Vec<u8>>) -> Result<i32> {
+fn read_version(cursor: &mut Cursor<&[u8]>) -> Result<i32> {
     cursor.read_i32::<LittleEndian>()
 }
 
@@ -34,9 +34,9 @@ pub struct DirEntry {
     pub length: i32,
 }
 
-fn read_directories(cursor: &mut Cursor<Vec<u8>>) -> Result<Vec<DirEntry>> {
+fn read_directories(cursor: &mut Cursor<&[u8]>) -> Result<Vec<DirEntry>> {
     let mut dir_entries = Vec::new();
-    for _ in 0..16 {
+    for _ in 0..17 {
         let offset = cursor.read_i32::<LittleEndian>()?;
         let length = cursor.read_i32::<LittleEndian>()?;
         dir_entries.push(DirEntry {
@@ -52,7 +52,7 @@ pub struct Entity {
     pub entities: String,
 }
 
-fn read_entities(cursor: &mut Cursor<Vec<u8>>, dir_entry: &DirEntry) -> Result<Entity> {
+fn read_entities(cursor: &mut Cursor<&[u8]>, dir_entry: &DirEntry) -> Result<Entity> {
     let mut entities = Vec::with_capacity(dir_entry.length as usize);
     cursor.set_position(dir_entry.offset as u64);
     for _ in 0..dir_entry.length {
@@ -63,8 +63,8 @@ fn read_entities(cursor: &mut Cursor<Vec<u8>>, dir_entry: &DirEntry) -> Result<E
     Ok(Entity { entities: entities })
 }
 
-fn read_entry<F, T>(cursor: &mut Cursor<Vec<u8>>, dir_entry: &DirEntry, mut f: F) -> Result<Vec<T>>
-    where F: FnMut(&mut Cursor<Vec<u8>>) -> Result<T>
+fn read_entry<F, T>(cursor: &mut Cursor<&[u8]>, dir_entry: &DirEntry, mut f: F) -> Result<Vec<T>>
+    where F: FnMut(&mut Cursor<&[u8]>) -> Result<T>
 {
     let mut entries = Vec::new();
     cursor.set_position(dir_entry.offset as u64);
@@ -83,7 +83,7 @@ pub struct Texture {
     pub contents: i32,
 }
 
-fn read_texture(cursor: &mut Cursor<Vec<u8>>) -> Result<Texture> {
+fn read_texture(cursor: &mut Cursor<&[u8]>) -> Result<Texture> {
     let mut texture = Vec::new();
     for _ in 0..64 {
         let data = cursor.read_u8()?;
@@ -107,7 +107,7 @@ pub struct Plane {
     pub dist: f32,
 }
 
-fn read_plane(cursor: &mut Cursor<Vec<u8>>) -> Result<Plane> {
+fn read_plane(cursor: &mut Cursor<&[u8]>) -> Result<Plane> {
     let x = cursor.read_f32::<LittleEndian>()?;
     let y = cursor.read_f32::<LittleEndian>()?;
     let z = cursor.read_f32::<LittleEndian>()?;
@@ -127,7 +127,7 @@ pub struct Node {
     pub maxs: [i32; 3],
 }
 
-fn read_node(cursor: &mut Cursor<Vec<u8>>) -> Result<Node> {
+fn read_node(cursor: &mut Cursor<&[u8]>) -> Result<Node> {
     let plane = cursor.read_i32::<LittleEndian>()?;
     let children = [cursor.read_i32::<LittleEndian>()?, cursor.read_i32::<LittleEndian>()?];
     let mins = [cursor.read_i32::<LittleEndian>()?,
@@ -157,7 +157,7 @@ pub struct Leaf {
     pub num_leaf_brushes: i32,
 }
 
-fn read_leaf(cursor: &mut Cursor<Vec<u8>>) -> Result<Leaf> {
+fn read_leaf(cursor: &mut Cursor<&[u8]>) -> Result<Leaf> {
     let cluster = cursor.read_i32::<LittleEndian>()?;
     let area = cursor.read_i32::<LittleEndian>()?;
     let mins = [cursor.read_i32::<LittleEndian>()?,
@@ -188,7 +188,7 @@ pub struct LeafFace {
     pub face: i32,
 }
 
-fn read_leaf_face(cursor: &mut Cursor<Vec<u8>>) -> Result<LeafFace> {
+fn read_leaf_face(cursor: &mut Cursor<&[u8]>) -> Result<LeafFace> {
     let face = cursor.read_i32::<LittleEndian>()?;
     let leaf_face = LeafFace { face: face };
     Ok(leaf_face)
@@ -199,7 +199,7 @@ pub struct LeafBrush {
     pub brush: i32,
 }
 
-fn read_leaf_brush(cursor: &mut Cursor<Vec<u8>>) -> Result<LeafBrush> {
+fn read_leaf_brush(cursor: &mut Cursor<&[u8]>) -> Result<LeafBrush> {
     let brush = cursor.read_i32::<LittleEndian>()?;
     let leaf_brush = LeafBrush { brush: brush };
     Ok(leaf_brush)
@@ -215,7 +215,7 @@ pub struct Model {
     pub num_brushes: i32,
 }
 
-fn read_model(cursor: &mut Cursor<Vec<u8>>) -> Result<Model> {
+fn read_model(cursor: &mut Cursor<&[u8]>) -> Result<Model> {
     let mins = [cursor.read_f32::<LittleEndian>()?,
                 cursor.read_f32::<LittleEndian>()?,
                 cursor.read_f32::<LittleEndian>()?];
@@ -244,7 +244,7 @@ pub struct Brush {
     pub texture: i32,
 }
 
-fn read_brush(cursor: &mut Cursor<Vec<u8>>) -> Result<Brush> {
+fn read_brush(cursor: &mut Cursor<&[u8]>) -> Result<Brush> {
     let brush_side = cursor.read_i32::<LittleEndian>()?;
     let num_brush_sides = cursor.read_i32::<LittleEndian>()?;
     let texture = cursor.read_i32::<LittleEndian>()?;
@@ -262,7 +262,7 @@ pub struct BrushSide {
     pub texture: i32,
 }
 
-fn read_brush_side(cursor: &mut Cursor<Vec<u8>>) -> Result<BrushSide> {
+fn read_brush_side(cursor: &mut Cursor<&[u8]>) -> Result<BrushSide> {
     let plane = cursor.read_i32::<LittleEndian>()?;
     let texture = cursor.read_i32::<LittleEndian>()?;
     let brush_side = BrushSide {
@@ -281,7 +281,7 @@ pub struct Vertex {
     pub color: [u8; 4],
 }
 
-fn read_vertex(cursor: &mut Cursor<Vec<u8>>) -> Result<Vertex> {
+fn read_vertex(cursor: &mut Cursor<&[u8]>) -> Result<Vertex> {
     let position = [cursor.read_f32::<LittleEndian>()?,
                     cursor.read_f32::<LittleEndian>()?,
                     cursor.read_f32::<LittleEndian>()?];
@@ -306,7 +306,7 @@ pub struct MeshVert {
     pub offset: i32,
 }
 
-fn read_mesh_vert(cursor: &mut Cursor<Vec<u8>>) -> Result<MeshVert> {
+fn read_mesh_vert(cursor: &mut Cursor<&[u8]>) -> Result<MeshVert> {
     let offset = cursor.read_i32::<LittleEndian>()?;
     let mesh_vert = MeshVert { offset: offset };
     Ok(mesh_vert)
@@ -319,7 +319,7 @@ pub struct Effect {
     pub unk: i32,
 }
 
-fn read_effect(cursor: &mut Cursor<Vec<u8>>) -> Result<Effect> {
+fn read_effect(cursor: &mut Cursor<&[u8]>) -> Result<Effect> {
     let mut name = Vec::new();
     for _ in 0..64 {
         let data = cursor.read_u8()?;
@@ -339,13 +339,13 @@ fn read_effect(cursor: &mut Cursor<Vec<u8>>) -> Result<Effect> {
 
 #[derive(Debug)]
 pub struct Face {
-    pub texture: i32,
+    pub texture: usize,
     pub effect: i32,
     pub face_type: i32,
     pub vertex: i32,
     pub num_vertexes: i32,
-    pub mesh_vert: i32,
-    pub num_mesh_verts: i32,
+    pub mesh_vert: usize,
+    pub num_mesh_verts: usize,
     pub lm_index: i32,
     pub lm_start: [i32; 2],
     pub lm_size: [i32; 2],
@@ -355,14 +355,14 @@ pub struct Face {
     pub size: [i32; 2],
 }
 
-fn read_face(cursor: &mut Cursor<Vec<u8>>) -> Result<Face> {
-    let texture = cursor.read_i32::<LittleEndian>()?;
+fn read_face(cursor: &mut Cursor<&[u8]>) -> Result<Face> {
+    let texture = cursor.read_i32::<LittleEndian>()? as usize;
     let effect = cursor.read_i32::<LittleEndian>()?;
     let face_type = cursor.read_i32::<LittleEndian>()?;
     let vertex = cursor.read_i32::<LittleEndian>()?;
     let num_vertexes = cursor.read_i32::<LittleEndian>()?;
-    let mesh_vert = cursor.read_i32::<LittleEndian>()?;
-    let num_mesh_verts = cursor.read_i32::<LittleEndian>()?;
+    let mesh_vert = cursor.read_i32::<LittleEndian>()? as usize;
+    let num_mesh_verts = cursor.read_i32::<LittleEndian>()? as usize;
     let lm_index = cursor.read_i32::<LittleEndian>()?;
     let lm_start = [cursor.read_i32::<LittleEndian>()?, cursor.read_i32::<LittleEndian>()?];
     let lm_size = [cursor.read_i32::<LittleEndian>()?, cursor.read_i32::<LittleEndian>()?];
@@ -400,6 +400,29 @@ fn read_face(cursor: &mut Cursor<Vec<u8>>) -> Result<Face> {
 }
 
 #[derive(Debug)]
+pub struct VisData {
+    pub n_vecs : i32,   //Number of vectors.
+    pub sz_vecs	: i32,  //Size of each vector, in bytes.
+    pub vecs : Vec<u8> //	Visibility data. One bit per cluster per vector.
+}
+
+fn read_visdata(cursor: &mut Cursor<&[u8]>) -> Result<VisData> {
+    let n_vecs = cursor.read_i32::<LittleEndian>()?;
+    let sz_vecs = cursor.read_i32::<LittleEndian>()?;
+    let mut vecs = Vec::new();
+    for _ in 0..(n_vecs * sz_vecs) {
+        let v = cursor.read_u8()?;
+        vecs.push(v);
+    }
+    let vis_data = VisData { 
+        n_vecs: n_vecs,
+        sz_vecs : sz_vecs,
+        vecs : vecs
+    };
+    Ok(vis_data)
+}
+
+#[derive(Debug)]
 pub struct BSP {
     pub header: Header,
     pub dir_entries: Vec<DirEntry>,
@@ -417,9 +440,10 @@ pub struct BSP {
     pub mesh_verts: Vec<MeshVert>,
     pub effects: Vec<Effect>,
     pub faces: Vec<Face>,
+    pub vis_data : VisData,
 }
 
-pub fn read_bsp(bytes: Vec<u8>) -> Result<BSP> {
+pub fn read_bsp(bytes: &[u8]) -> Result<BSP> {
     let mut cursor = Cursor::new(bytes);
     let header = read_header(&mut cursor)?;
     let version = read_version(&mut cursor)?;
@@ -439,6 +463,8 @@ pub fn read_bsp(bytes: Vec<u8>) -> Result<BSP> {
     let mesh_verts = read_entry(&mut cursor, &dir_entries[11], read_mesh_vert)?;
     let effects = read_entry(&mut cursor, &dir_entries[12], read_effect)?;
     let faces = read_entry(&mut cursor, &dir_entries[13], read_face)?;
+    cursor.set_position(dir_entries[16].offset as u64);
+    let vis_data = read_visdata(&mut cursor)?;
     Ok({
         BSP {
             header: header,
@@ -457,6 +483,7 @@ pub fn read_bsp(bytes: Vec<u8>) -> Result<BSP> {
             mesh_verts: mesh_verts,
             effects: effects,
             faces: faces,
+            vis_data: vis_data
         }
     })
 }
