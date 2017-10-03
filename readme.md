@@ -1,4 +1,4 @@
-#Example usage
+# Example usage
 
 (Assuming that the pk3 file is unzipped locally)
 
@@ -11,7 +11,7 @@
         let mut file = File::open(path).unwrap();
         let mut bytes = Vec::new();
         file.read_to_end(&mut bytes).unwrap();
-        let bsp = quake3_loader::read_bsp(bytes);           
+        let bsp = quake3_loader::read_bsp(&bytes);           
         println!("{:?}", bsp);
     }
 
