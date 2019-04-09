@@ -1,432 +1,757 @@
-extern crate byteorder;
-
+use arrayvec::ArrayString;
 use byteorder::{LittleEndian, ReadBytesExt};
-use std::io::*;
+use std::{
+    fmt,
+    io::{Error, ErrorKind, Read, Result, Seek, SeekFrom, Take},
+};
 
-#[derive(Debug)]
+trait ElementSize {
+    const SIZE: usize;
+}
+
+macro_rules! elsize {
+    ($(#[$($any:tt)*])* $v:vis struct $name:ident { $($v0:vis $fname:ident : $fty:ty,)* }) => {
+        impl ElementSize for $name {
+            const SIZE: usize = {
+                use std::mem;
+
+                let mut a = 0;
+
+                $(
+                    a += mem::size_of::<$fty>();
+                )*
+
+                a
+            };
+        }
+
+        $(#[$($any)*])* $v struct $name {
+            $($v0 $fname : $fty,)*
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct Directories {
+    pub entities: DirEntry,
+    pub textures: DirEntry,
+    pub planes: DirEntry,
+    pub nodes: DirEntry,
+    pub leafs: DirEntry,
+    pub leaf_faces: DirEntry,
+    pub leaf_brushes: DirEntry,
+    pub models: DirEntry,
+    pub brushes: DirEntry,
+    pub brush_sides: DirEntry,
+    pub vertexes: DirEntry,
+    pub mesh_verts: DirEntry,
+    pub effects: DirEntry,
+    pub faces: DirEntry,
+    pub lightmaps: DirEntry,
+    pub lightvols: DirEntry,
+    pub visdata: DirEntry,
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub struct Header {
-    pub i: char,
-    pub b: char,
-    pub s: char,
-    pub p: char,
+    pub i: u8,
+    pub b: u8,
+    pub s: u8,
+    pub p: u8,
 }
 
-fn read_header(cursor: &mut Cursor<&[u8]>) -> Result<Header> {
-    let i = cursor.read_u8()? as char;
-    let b = cursor.read_u8()? as char;
-    let s = cursor.read_u8()? as char;
-    let p = cursor.read_u8()? as char;
-    Ok(Header {
-        i: i,
-        b: b,
-        s: s,
-        p: p,
-    })
-}
-
-fn read_version(cursor: &mut Cursor<&[u8]>) -> Result<i32> {
-    cursor.read_i32::<LittleEndian>()
-}
-
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct DirEntry {
     pub offset: i32,
     pub length: i32,
 }
 
-fn read_directories(cursor: &mut Cursor<&[u8]>) -> Result<Vec<DirEntry>> {
-    let mut dir_entries = Vec::new();
-    for _ in 0..17 {
-        let offset = cursor.read_i32::<LittleEndian>()?;
-        let length = cursor.read_i32::<LittleEndian>()?;
-        dir_entries.push(DirEntry {
-            offset: offset,
-            length: length,
-        });
+elsize! {
+    #[derive(Debug)]
+    pub struct LeafFace {
+        pub face: i32,
     }
-    Ok(dir_entries)
 }
 
-#[derive(Debug)]
-pub struct Entity {
-    pub entities: String,
+pub struct Entities {
+    entities: String,
 }
 
-fn read_entities(cursor: &mut Cursor<&[u8]>, dir_entry: &DirEntry) -> Result<Entity> {
-    let mut entities = Vec::with_capacity(dir_entry.length as usize);
-    cursor.set_position(dir_entry.offset as u64);
-    for _ in 0..dir_entry.length {
-        let data = cursor.read_u8()?;
-        entities.push(data);
+impl fmt::Debug for Entities {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        #[derive(Debug)]
+        struct Entities<'a> {
+            entities: Vec<Entity<'a>>,
+        }
+
+        Entities {
+            entities: self.iter().collect(),
+        }
+        .fmt(f)
     }
-    let entities = String::from_utf8(entities).unwrap();
-    Ok(Entity { entities: entities })
 }
 
-fn read_entry<F, T>(cursor: &mut Cursor<&[u8]>, dir_entry: &DirEntry, mut f: F) -> Result<Vec<T>>
-    where F: FnMut(&mut Cursor<&[u8]>) -> Result<T>
-{
-    let mut entries = Vec::new();
-    cursor.set_position(dir_entry.offset as u64);
-    let end_pos = (dir_entry.offset + dir_entry.length) as u64;
-    while cursor.position() < end_pos {
-        let entry = f(cursor)?;
-        entries.push(entry);
+impl Entities {
+    pub fn iter(&self) -> impl Iterator<Item = Entity<'_>> {
+        struct Iter<'a> {
+            buf: &'a str,
+        }
+
+        impl<'a> Iterator for Iter<'a> {
+            type Item = Entity<'a>;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                let start = self.buf.find('{')? + 1;
+                let end = start + self.buf[start..].find('}')?;
+
+                let out = &self.buf[start..end];
+
+                self.buf = &self.buf[end + 1..];
+
+                Some(Entity { buf: out })
+            }
+        }
+
+        Iter {
+            buf: &self.entities,
+        }
     }
-    Ok(entries)
+}
+
+pub struct Entity<'a> {
+    buf: &'a str,
+}
+
+impl fmt::Debug for Entity<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use std::collections::HashMap;
+
+        self.properties().collect::<HashMap<_, _>>().fmt(f)
+    }
+}
+
+impl<'a> Entity<'a> {
+    pub fn properties(&self) -> impl Iterator<Item = (&'a str, &'a str)> {
+        struct Iter<'a> {
+            buf: &'a str,
+        }
+
+        impl<'a> Iterator for Iter<'a> {
+            type Item = (&'a str, &'a str);
+
+            fn next(&mut self) -> Option<Self::Item> {
+                let start = self.buf.find('"')? + 1;
+                let end = start + self.buf[start..].find('"')?;
+
+                let key = &self.buf[start..end];
+
+                let rest = &self.buf[end + 1..];
+
+                let start = rest.find('"')? + 1;
+                let end = start + rest[start..].find('"')?;
+
+                let value = &rest[start..end];
+
+                self.buf = &rest[end + 1..];
+
+                Some((key, value))
+            }
+        }
+
+        Iter { buf: &self.buf }
+    }
 }
 
 #[derive(Debug)]
 pub struct Texture {
-    pub name: String,
+    pub name: ArrayString<[u8; 64]>,
     pub flags: i32,
     pub contents: i32,
 }
 
-fn read_texture(cursor: &mut Cursor<&[u8]>) -> Result<Texture> {
-    let mut texture = Vec::new();
-    for _ in 0..64 {
-        let data = cursor.read_u8()?;
-        if data != 0u8 {
-            texture.push(data);
-        }
+impl ElementSize for Texture {
+    const SIZE: usize = std::mem::size_of::<i32>() * 2 + std::mem::size_of::<u8>() * 64;
+}
+
+elsize! {
+    #[derive(Debug)]
+    pub struct Plane {
+        pub normal: [f32; 3],
+        pub dist: f32,
     }
-    let texture_name = String::from_utf8(texture).unwrap();
-    let flags = cursor.read_i32::<LittleEndian>()?;
-    let contents = cursor.read_i32::<LittleEndian>()?;
-    Ok(Texture {
-        name: texture_name,
-        flags: flags,
-        contents: contents,
-    })
 }
 
-#[derive(Debug)]
-pub struct Plane {
-    pub normal: [f32; 3],
-    pub dist: f32,
+elsize! {
+    #[derive(Debug)]
+    pub struct Node {
+        pub plane: i32,
+        pub children: [i32; 2],
+        pub mins: [i32; 3],
+        pub maxs: [i32; 3],
+    }
 }
 
-fn read_plane(cursor: &mut Cursor<&[u8]>) -> Result<Plane> {
-    let x = cursor.read_f32::<LittleEndian>()?;
-    let y = cursor.read_f32::<LittleEndian>()?;
-    let z = cursor.read_f32::<LittleEndian>()?;
-    let dist = cursor.read_f32::<LittleEndian>()?;
-    let plane = Plane {
-        normal: [x, y, z],
-        dist: dist,
-    };
-    Ok(plane)
+elsize! {
+    #[derive(Debug)]
+    pub struct Leaf {
+        pub cluster: i32,
+        pub area: i32,
+        pub mins: [i32; 3],
+        pub maxs: [i32; 3],
+        pub leaf_face: i32,
+        pub num_leaf_faces: i32,
+        pub leaf_brush: i32,
+        pub num_leaf_brushes: i32,
+    }
 }
 
-#[derive(Debug)]
-pub struct Node {
-    pub plane: i32,
-    pub children: [i32; 2],
-    pub mins: [i32; 3],
-    pub maxs: [i32; 3],
+elsize! {
+    #[derive(Debug)]
+    pub struct LeafBrush {
+        pub brush: i32,
+    }
 }
 
-fn read_node(cursor: &mut Cursor<&[u8]>) -> Result<Node> {
-    let plane = cursor.read_i32::<LittleEndian>()?;
-    let children = [cursor.read_i32::<LittleEndian>()?, cursor.read_i32::<LittleEndian>()?];
-    let mins = [cursor.read_i32::<LittleEndian>()?,
-                cursor.read_i32::<LittleEndian>()?,
-                cursor.read_i32::<LittleEndian>()?];
-    let maxs = [cursor.read_i32::<LittleEndian>()?,
-                cursor.read_i32::<LittleEndian>()?,
-                cursor.read_i32::<LittleEndian>()?];
-    let node = Node {
-        plane: plane,
-        children: children,
-        mins: mins,
-        maxs: maxs,
-    };
-    Ok(node)
+elsize! {
+    #[derive(Debug)]
+    pub struct Model {
+        pub mins: [f32; 3],
+        pub maxs: [f32; 3],
+        pub face: i32,
+        pub num_faces: i32,
+        pub brush: i32,
+        pub num_brushes: i32,
+    }
 }
 
-#[derive(Debug)]
-pub struct Leaf {
-    pub cluster: i32,
-    pub area: i32,
-    pub mins: [i32; 3],
-    pub maxs: [i32; 3],
-    pub leaf_face: i32,
-    pub num_leaf_faces: i32,
-    pub leaf_brush: i32,
-    pub num_leaf_brushes: i32,
+elsize! {
+    #[derive(Debug)]
+    pub struct Brush {
+        pub brush_side: i32,
+        pub num_brush_sides: i32,
+        pub texture: i32,
+    }
 }
 
-fn read_leaf(cursor: &mut Cursor<&[u8]>) -> Result<Leaf> {
-    let cluster = cursor.read_i32::<LittleEndian>()?;
-    let area = cursor.read_i32::<LittleEndian>()?;
-    let mins = [cursor.read_i32::<LittleEndian>()?,
-                cursor.read_i32::<LittleEndian>()?,
-                cursor.read_i32::<LittleEndian>()?];
-    let maxs = [cursor.read_i32::<LittleEndian>()?,
-                cursor.read_i32::<LittleEndian>()?,
-                cursor.read_i32::<LittleEndian>()?];
-    let leaf_face = cursor.read_i32::<LittleEndian>()?;
-    let num_leaf_faces = cursor.read_i32::<LittleEndian>()?;
-    let leaf_brush = cursor.read_i32::<LittleEndian>()?;
-    let num_leaf_brushes = cursor.read_i32::<LittleEndian>()?;
-    let leaf = Leaf {
-        cluster: cluster,
-        area: area,
-        mins: mins,
-        maxs: maxs,
-        leaf_face: leaf_face,
-        num_leaf_faces: num_leaf_faces,
-        leaf_brush: leaf_brush,
-        num_leaf_brushes: num_leaf_brushes,
-    };
-    Ok(leaf)
+elsize! {
+    #[derive(Debug)]
+    pub struct BrushSide {
+        pub plane: i32,
+        pub texture: i32,
+    }
 }
 
-#[derive(Debug)]
-pub struct LeafFace {
-    pub face: i32,
+elsize! {
+    #[derive(Debug)]
+    pub struct Vertex {
+        pub position: [f32; 3],
+        pub tex_coord1: [f32; 2],
+        pub tex_coord2: [f32; 2],
+        pub normal: [f32; 3],
+        pub color: [u8; 4],
+    }
 }
 
-fn read_leaf_face(cursor: &mut Cursor<&[u8]>) -> Result<LeafFace> {
-    let face = cursor.read_i32::<LittleEndian>()?;
-    let leaf_face = LeafFace { face: face };
-    Ok(leaf_face)
-}
-
-#[derive(Debug)]
-pub struct LeafBrush {
-    pub brush: i32,
-}
-
-fn read_leaf_brush(cursor: &mut Cursor<&[u8]>) -> Result<LeafBrush> {
-    let brush = cursor.read_i32::<LittleEndian>()?;
-    let leaf_brush = LeafBrush { brush: brush };
-    Ok(leaf_brush)
-}
-
-#[derive(Debug)]
-pub struct Model {
-    pub mins: [f32; 3],
-    pub maxs: [f32; 3],
-    pub face: i32,
-    pub num_faces: i32,
-    pub brush: i32,
-    pub num_brushes: i32,
-}
-
-fn read_model(cursor: &mut Cursor<&[u8]>) -> Result<Model> {
-    let mins = [cursor.read_f32::<LittleEndian>()?,
-                cursor.read_f32::<LittleEndian>()?,
-                cursor.read_f32::<LittleEndian>()?];
-    let maxs = [cursor.read_f32::<LittleEndian>()?,
-                cursor.read_f32::<LittleEndian>()?,
-                cursor.read_f32::<LittleEndian>()?];
-    let face = cursor.read_i32::<LittleEndian>()?;
-    let num_faces = cursor.read_i32::<LittleEndian>()?;
-    let brush = cursor.read_i32::<LittleEndian>()?;
-    let num_brushes = cursor.read_i32::<LittleEndian>()?;
-    let model = Model {
-        mins: mins,
-        maxs: maxs,
-        face: face,
-        num_faces: num_faces,
-        brush: brush,
-        num_brushes: num_brushes,
-    };
-    Ok(model)
-}
-
-#[derive(Debug)]
-pub struct Brush {
-    pub brush_side: i32,
-    pub num_brush_sides: i32,
-    pub texture: i32,
-}
-
-fn read_brush(cursor: &mut Cursor<&[u8]>) -> Result<Brush> {
-    let brush_side = cursor.read_i32::<LittleEndian>()?;
-    let num_brush_sides = cursor.read_i32::<LittleEndian>()?;
-    let texture = cursor.read_i32::<LittleEndian>()?;
-    let brush = Brush {
-        brush_side: brush_side,
-        num_brush_sides: num_brush_sides,
-        texture: texture,
-    };
-    Ok(brush)
-}
-
-#[derive(Debug)]
-pub struct BrushSide {
-    pub plane: i32,
-    pub texture: i32,
-}
-
-fn read_brush_side(cursor: &mut Cursor<&[u8]>) -> Result<BrushSide> {
-    let plane = cursor.read_i32::<LittleEndian>()?;
-    let texture = cursor.read_i32::<LittleEndian>()?;
-    let brush_side = BrushSide {
-        plane: plane,
-        texture: texture,
-    };
-    Ok(brush_side)
-}
-
-#[derive(Debug)]
-pub struct Vertex {
-    pub position: [f32; 3],
-    pub tex_coord1: [f32; 2],
-    pub tex_coord2: [f32; 2],
-    pub normal: [f32; 3],
-    pub color: [u8; 4],
-}
-
-fn read_vertex(cursor: &mut Cursor<&[u8]>) -> Result<Vertex> {
-    let position = [cursor.read_f32::<LittleEndian>()?,
-                    cursor.read_f32::<LittleEndian>()?,
-                    cursor.read_f32::<LittleEndian>()?];
-    let tex_coord1 = [cursor.read_f32::<LittleEndian>()?, cursor.read_f32::<LittleEndian>()?];
-    let tex_coord2 = [cursor.read_f32::<LittleEndian>()?, cursor.read_f32::<LittleEndian>()?];
-    let normal = [cursor.read_f32::<LittleEndian>()?,
-                  cursor.read_f32::<LittleEndian>()?,
-                  cursor.read_f32::<LittleEndian>()?];
-    let color = [cursor.read_u8()?, cursor.read_u8()?, cursor.read_u8()?, cursor.read_u8()?];
-    let vertex = Vertex {
-        position: position,
-        tex_coord1: tex_coord1,
-        tex_coord2: tex_coord2,
-        normal: normal,
-        color: color,
-    };
-    Ok(vertex)
-}
-
-#[derive(Debug)]
-pub struct MeshVert {
-    pub offset: i32,
-}
-
-fn read_mesh_vert(cursor: &mut Cursor<&[u8]>) -> Result<MeshVert> {
-    let offset = cursor.read_i32::<LittleEndian>()?;
-    let mesh_vert = MeshVert { offset: offset };
-    Ok(mesh_vert)
+elsize! {
+    #[derive(Debug)]
+    pub struct MeshVert {
+        pub offset: i32,
+    }
 }
 
 #[derive(Debug)]
 pub struct Effect {
-    pub name: String,
+    pub name: ArrayString<[u8; 64]>,
     pub brush: i32,
-    pub unk: i32,
+    pub unknown: i32,
 }
 
-fn read_effect(cursor: &mut Cursor<&[u8]>) -> Result<Effect> {
-    let mut name = Vec::new();
-    for _ in 0..64 {
-        let data = cursor.read_u8()?;
-        if data != 0u8 {
-            name.push(data);
-        }
+impl ElementSize for Effect {
+    const SIZE: usize = std::mem::size_of::<i32>() * 2 + std::mem::size_of::<u8>() * 64;
+}
+
+elsize! {
+    #[derive(Debug)]
+    pub struct Face {
+        pub texture: i32,
+        pub effect: i32,
+        pub face_type: i32,
+        pub vertex: i32,
+        pub num_vertexes: i32,
+        pub mesh_vert: i32,
+        pub num_mesh_verts: i32,
+        pub lm_index: i32,
+        pub lm_start: [i32; 2],
+        pub lm_size: [i32; 2],
+        pub lm_origin: [f32; 3],
+        pub lm_vecs: [[f32; 3]; 2],
+        pub normal: [f32; 3],
+        pub size: [i32; 2],
     }
-    let name = String::from_utf8(name).unwrap();
-    let brush = cursor.read_i32::<LittleEndian>()?;
-    let unk = cursor.read_i32::<LittleEndian>()?;
-    Ok(Effect {
-        name: name,
-        brush: brush,
-        unk: unk,
-    })
 }
 
-#[derive(Debug)]
-pub struct Face {
-    pub texture: usize,
-    pub effect: i32,
-    pub face_type: i32,
-    pub vertex: i32,
-    pub num_vertexes: i32,
-    pub mesh_vert: usize,
-    pub num_mesh_verts: usize,
-    pub lm_index: i32,
-    pub lm_start: [i32; 2],
-    pub lm_size: [i32; 2],
-    pub lm_origin: [f32; 3],
-    pub lm_vecs: [[f32; 3]; 2],
-    pub normal: [f32; 3],
-    pub size: [i32; 2],
+const LIGHTMAP_SIZE: usize = 128;
+
+elsize! {
+    pub struct Lightmap {
+        map: [[[u8; 3]; LIGHTMAP_SIZE]; LIGHTMAP_SIZE],
+    }
 }
 
-fn read_face(cursor: &mut Cursor<&[u8]>) -> Result<Face> {
-    let texture = cursor.read_i32::<LittleEndian>()? as usize;
-    let effect = cursor.read_i32::<LittleEndian>()?;
-    let face_type = cursor.read_i32::<LittleEndian>()?;
-    let vertex = cursor.read_i32::<LittleEndian>()?;
-    let num_vertexes = cursor.read_i32::<LittleEndian>()?;
-    let mesh_vert = cursor.read_i32::<LittleEndian>()? as usize;
-    let num_mesh_verts = cursor.read_i32::<LittleEndian>()? as usize;
-    let lm_index = cursor.read_i32::<LittleEndian>()?;
-    let lm_start = [cursor.read_i32::<LittleEndian>()?, cursor.read_i32::<LittleEndian>()?];
-    let lm_size = [cursor.read_i32::<LittleEndian>()?, cursor.read_i32::<LittleEndian>()?];
-    let lm_origin = [cursor.read_f32::<LittleEndian>()?,
-                     cursor.read_f32::<LittleEndian>()?,
-                     cursor.read_f32::<LittleEndian>()?];
-    let lm_vec1 = [cursor.read_f32::<LittleEndian>()?,
-                   cursor.read_f32::<LittleEndian>()?,
-                   cursor.read_f32::<LittleEndian>()?];
-    let lm_vec2 = [cursor.read_f32::<LittleEndian>()?,
-                   cursor.read_f32::<LittleEndian>()?,
-                   cursor.read_f32::<LittleEndian>()?];
-    let lm_vecs = [lm_vec1, lm_vec2];
-    let normal = [cursor.read_f32::<LittleEndian>()?,
-                  cursor.read_f32::<LittleEndian>()?,
-                  cursor.read_f32::<LittleEndian>()?];
-    let size = [cursor.read_i32::<LittleEndian>()?, cursor.read_i32::<LittleEndian>()?];
-    let face = Face {
-        texture: texture,
-        effect: effect,
-        face_type: face_type,
-        vertex: vertex,
-        num_vertexes: num_vertexes,
-        mesh_vert: mesh_vert,
-        num_mesh_verts: num_mesh_verts,
-        lm_index: lm_index,
-        lm_start: lm_start,
-        lm_size: lm_size,
-        lm_origin: lm_origin,
-        lm_vecs: lm_vecs,
-        normal: normal,
-        size: size,
-    };
-    Ok(face)
+impl fmt::Debug for Lightmap {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        #[derive(Debug)]
+        struct Lightmap {
+            map: Vec<Vec<[u8; 3]>>,
+        }
+
+        Lightmap {
+            map: self.map.iter().map(|a| a.to_vec()).collect::<Vec<_>>(),
+        }
+        .fmt(f)
+    }
+}
+
+elsize! {
+    #[derive(Debug)]
+    pub struct Lightvol {
+        ambient: [u8; 3],
+        directional: [u8; 3],
+        dir: [u8; 2],
+    }
 }
 
 #[derive(Debug)]
 pub struct VisData {
-    pub n_vecs : i32,   //Number of vectors.
-    pub sz_vecs	: i32,  //Size of each vector, in bytes.
-    pub vecs : Vec<u8> //	Visibility data. One bit per cluster per vector.
+    pub n_vecs: i32,   // Number of vectors.
+    pub sz_vecs: i32,  // Size of each vector, in bytes.
+    pub vecs: Vec<u8>, // Visibility data. One bit per cluster per vector.
 }
 
-fn read_visdata(cursor: &mut Cursor<&[u8]>) -> Result<VisData> {
-    let n_vecs = cursor.read_i32::<LittleEndian>()?;
-    let sz_vecs = cursor.read_i32::<LittleEndian>()?;
-    let mut vecs = Vec::new();
-    for _ in 0..(n_vecs * sz_vecs) {
-        let v = cursor.read_u8()?;
-        vecs.push(v);
+struct BspReader<R> {
+    inner: R,
+}
+
+impl<R: Read + Seek> BspReader<R> {
+    fn read_entities(&mut self, dir_entry: &DirEntry) -> Result<Entities> {
+        let mut entities = Vec::with_capacity(dir_entry.length as usize);
+        self.inner.seek(SeekFrom::Start(dir_entry.offset as u64))?;
+        self.inner
+            .by_ref()
+            .take(dir_entry.length as u64)
+            .read_to_end(&mut entities)?;
+        let entities =
+            String::from_utf8(entities).map_err(|err| Error::new(ErrorKind::InvalidData, err))?;
+        Ok(Entities { entities })
     }
-    let vis_data = VisData { 
-        n_vecs: n_vecs,
-        sz_vecs : sz_vecs,
-        vecs : vecs
-    };
-    Ok(vis_data)
+
+    fn read_entry<F, T>(&mut self, dir_entry: &DirEntry, mut f: F) -> Result<Vec<T>>
+    where
+        F: FnMut(&mut BspReader<Take<&mut R>>) -> Result<T>,
+        T: ElementSize,
+    {
+        if dir_entry.length % T::SIZE as i32 != 0 {
+            return Err(ErrorKind::InvalidData.into());
+        }
+
+        let mut entries = Vec::with_capacity(dir_entry.length as usize / T::SIZE);
+        self.inner.seek(SeekFrom::Start(dir_entry.offset as u64))?;
+        let mut reader = BspReader {
+            inner: self.inner.by_ref().take(dir_entry.length as u64),
+        };
+        loop {
+            match f(&mut reader) {
+                Ok(entry) => entries.push(entry),
+                Err(e) => {
+                    if e.kind() != ErrorKind::UnexpectedEof || reader.inner.bytes().next().is_some()
+                    {
+                        return Err(e);
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+        entries.shrink_to_fit();
+        Ok(entries)
+    }
 }
 
+impl<R: Read> BspReader<R> {
+    fn read_header(&mut self) -> Result<Header> {
+        let i = self.inner.read_u8()?;
+        let b = self.inner.read_u8()?;
+        let s = self.inner.read_u8()?;
+        let p = self.inner.read_u8()?;
+        Ok(Header { i, b, s, p })
+    }
+
+    fn read_version(&mut self) -> Result<i32> {
+        self.inner.read_i32::<LittleEndian>()
+    }
+
+    fn read_directories(&mut self) -> Result<Directories> {
+        macro_rules! read_dirs {
+            (@inner $out:expr,) => {
+                $out
+            };
+            (@inner $out:expr, $name:ident $(, $rest:ident)*) => {{
+                let mut out = $out;
+                out.$name = {
+                    let offset = self.inner.read_i32::<LittleEndian>()?;
+                    let length = self.inner.read_i32::<LittleEndian>()?;
+                    DirEntry {
+                        offset,
+                        length,
+                    }
+                };
+                read_dirs!(@inner out, $($rest),*)
+            }};
+            ($($any:tt)*) => {{
+                read_dirs!(@inner Directories::default(), $($any)*)
+            }}
+        }
+
+        Ok(read_dirs!(
+            entities,
+            textures,
+            planes,
+            nodes,
+            leafs,
+            leaf_faces,
+            leaf_brushes,
+            models,
+            brushes,
+            brush_sides,
+            vertexes,
+            mesh_verts,
+            effects,
+            faces,
+            lightmaps,
+            lightvols,
+            visdata
+        ))
+    }
+
+    fn read_texture(&mut self) -> Result<Texture> {
+        let name = self.read_name()?;
+        let flags = self.inner.read_i32::<LittleEndian>()?;
+        let contents = self.inner.read_i32::<LittleEndian>()?;
+        Ok(Texture {
+            name,
+            flags,
+            contents,
+        })
+    }
+
+    fn read_plane(&mut self) -> Result<Plane> {
+        let x = self.inner.read_f32::<LittleEndian>()?;
+        let y = self.inner.read_f32::<LittleEndian>()?;
+        let z = self.inner.read_f32::<LittleEndian>()?;
+        let dist = self.inner.read_f32::<LittleEndian>()?;
+        let plane = Plane {
+            normal: [x, y, z],
+            dist,
+        };
+        Ok(plane)
+    }
+
+    fn read_node(&mut self) -> Result<Node> {
+        let plane = self.inner.read_i32::<LittleEndian>()?;
+        let children = [
+            self.inner.read_i32::<LittleEndian>()?,
+            self.inner.read_i32::<LittleEndian>()?,
+        ];
+        let mins = [
+            self.inner.read_i32::<LittleEndian>()?,
+            self.inner.read_i32::<LittleEndian>()?,
+            self.inner.read_i32::<LittleEndian>()?,
+        ];
+        let maxs = [
+            self.inner.read_i32::<LittleEndian>()?,
+            self.inner.read_i32::<LittleEndian>()?,
+            self.inner.read_i32::<LittleEndian>()?,
+        ];
+        let node = Node {
+            plane,
+            children,
+            mins,
+            maxs,
+        };
+        Ok(node)
+    }
+
+    fn read_leaf(&mut self) -> Result<Leaf> {
+        let cluster = self.inner.read_i32::<LittleEndian>()?;
+        let area = self.inner.read_i32::<LittleEndian>()?;
+        let mins = [
+            self.inner.read_i32::<LittleEndian>()?,
+            self.inner.read_i32::<LittleEndian>()?,
+            self.inner.read_i32::<LittleEndian>()?,
+        ];
+        let maxs = [
+            self.inner.read_i32::<LittleEndian>()?,
+            self.inner.read_i32::<LittleEndian>()?,
+            self.inner.read_i32::<LittleEndian>()?,
+        ];
+        let leaf_face = self.inner.read_i32::<LittleEndian>()?;
+        let num_leaf_faces = self.inner.read_i32::<LittleEndian>()?;
+        let leaf_brush = self.inner.read_i32::<LittleEndian>()?;
+        let num_leaf_brushes = self.inner.read_i32::<LittleEndian>()?;
+        let leaf = Leaf {
+            cluster,
+            area,
+            mins,
+            maxs,
+            leaf_face,
+            num_leaf_faces,
+            leaf_brush,
+            num_leaf_brushes,
+        };
+        Ok(leaf)
+    }
+
+    fn read_leaf_face(&mut self) -> Result<LeafFace> {
+        let face = self.inner.read_i32::<LittleEndian>()?;
+        let leaf_face = LeafFace { face };
+        Ok(leaf_face)
+    }
+
+    fn read_leaf_brush(&mut self) -> Result<LeafBrush> {
+        let brush = self.inner.read_i32::<LittleEndian>()?;
+        let leaf_brush = LeafBrush { brush };
+        Ok(leaf_brush)
+    }
+
+    fn read_model(&mut self) -> Result<Model> {
+        let mins = [
+            self.inner.read_f32::<LittleEndian>()?,
+            self.inner.read_f32::<LittleEndian>()?,
+            self.inner.read_f32::<LittleEndian>()?,
+        ];
+        let maxs = [
+            self.inner.read_f32::<LittleEndian>()?,
+            self.inner.read_f32::<LittleEndian>()?,
+            self.inner.read_f32::<LittleEndian>()?,
+        ];
+        let face = self.inner.read_i32::<LittleEndian>()?;
+        let num_faces = self.inner.read_i32::<LittleEndian>()?;
+        let brush = self.inner.read_i32::<LittleEndian>()?;
+        let num_brushes = self.inner.read_i32::<LittleEndian>()?;
+        let model = Model {
+            mins,
+            maxs,
+            face,
+            num_faces,
+            brush,
+            num_brushes,
+        };
+        Ok(model)
+    }
+
+    fn read_brush(&mut self) -> Result<Brush> {
+        let brush_side = self.inner.read_i32::<LittleEndian>()?;
+        let num_brush_sides = self.inner.read_i32::<LittleEndian>()?;
+        let texture = self.inner.read_i32::<LittleEndian>()?;
+        let brush = Brush {
+            brush_side,
+            num_brush_sides,
+            texture,
+        };
+        Ok(brush)
+    }
+
+    fn read_brush_side(&mut self) -> Result<BrushSide> {
+        let plane = self.inner.read_i32::<LittleEndian>()?;
+        let texture = self.inner.read_i32::<LittleEndian>()?;
+        let brush_side = BrushSide { plane, texture };
+        Ok(brush_side)
+    }
+
+    fn read_vertex(&mut self) -> Result<Vertex> {
+        let position = [
+            self.inner.read_f32::<LittleEndian>()?,
+            self.inner.read_f32::<LittleEndian>()?,
+            self.inner.read_f32::<LittleEndian>()?,
+        ];
+        let tex_coord1 = [
+            self.inner.read_f32::<LittleEndian>()?,
+            self.inner.read_f32::<LittleEndian>()?,
+        ];
+        let tex_coord2 = [
+            self.inner.read_f32::<LittleEndian>()?,
+            self.inner.read_f32::<LittleEndian>()?,
+        ];
+        let normal = [
+            self.inner.read_f32::<LittleEndian>()?,
+            self.inner.read_f32::<LittleEndian>()?,
+            self.inner.read_f32::<LittleEndian>()?,
+        ];
+        let color = [
+            self.inner.read_u8()?,
+            self.inner.read_u8()?,
+            self.inner.read_u8()?,
+            self.inner.read_u8()?,
+        ];
+        let vertex = Vertex {
+            position,
+            tex_coord1,
+            tex_coord2,
+            normal,
+            color,
+        };
+        Ok(vertex)
+    }
+
+    fn read_mesh_vert(&mut self) -> Result<MeshVert> {
+        let offset = self.inner.read_i32::<LittleEndian>()?;
+        let mesh_vert = MeshVert { offset };
+        Ok(mesh_vert)
+    }
+
+    fn read_name(&mut self) -> Result<ArrayString<[u8; 64]>> {
+        let mut name_buf = [0u8; 64];
+        self.inner.read_exact(&mut name_buf)?;
+        ArrayString::from_byte_string(&name_buf)
+            .map_err(|err| Error::new(ErrorKind::InvalidData, err))
+    }
+
+    fn read_effect(&mut self) -> Result<Effect> {
+        let name = self.read_name()?;
+        let brush = self.inner.read_i32::<LittleEndian>()?;
+        let unknown = self.inner.read_i32::<LittleEndian>()?;
+        Ok(Effect {
+            name,
+            brush,
+            unknown,
+        })
+    }
+
+    fn read_face(&mut self) -> Result<Face> {
+        let texture = self.inner.read_i32::<LittleEndian>()?;
+        let effect = self.inner.read_i32::<LittleEndian>()?;
+        let face_type = self.inner.read_i32::<LittleEndian>()?;
+        let vertex = self.inner.read_i32::<LittleEndian>()?;
+        let num_vertexes = self.inner.read_i32::<LittleEndian>()?;
+        let mesh_vert = self.inner.read_i32::<LittleEndian>()?;
+        let num_mesh_verts = self.inner.read_i32::<LittleEndian>()?;
+        let lm_index = self.inner.read_i32::<LittleEndian>()?;
+        let lm_start = [
+            self.inner.read_i32::<LittleEndian>()?,
+            self.inner.read_i32::<LittleEndian>()?,
+        ];
+        let lm_size = [
+            self.inner.read_i32::<LittleEndian>()?,
+            self.inner.read_i32::<LittleEndian>()?,
+        ];
+        let lm_origin = [
+            self.inner.read_f32::<LittleEndian>()?,
+            self.inner.read_f32::<LittleEndian>()?,
+            self.inner.read_f32::<LittleEndian>()?,
+        ];
+        let lm_vec1 = [
+            self.inner.read_f32::<LittleEndian>()?,
+            self.inner.read_f32::<LittleEndian>()?,
+            self.inner.read_f32::<LittleEndian>()?,
+        ];
+        let lm_vec2 = [
+            self.inner.read_f32::<LittleEndian>()?,
+            self.inner.read_f32::<LittleEndian>()?,
+            self.inner.read_f32::<LittleEndian>()?,
+        ];
+        let lm_vecs = [lm_vec1, lm_vec2];
+        let normal = [
+            self.inner.read_f32::<LittleEndian>()?,
+            self.inner.read_f32::<LittleEndian>()?,
+            self.inner.read_f32::<LittleEndian>()?,
+        ];
+        let size = [
+            self.inner.read_i32::<LittleEndian>()?,
+            self.inner.read_i32::<LittleEndian>()?,
+        ];
+        let face = Face {
+            texture,
+            effect,
+            face_type,
+            vertex,
+            num_vertexes,
+            mesh_vert,
+            num_mesh_verts,
+            lm_index,
+            lm_start,
+            lm_size,
+            lm_origin,
+            lm_vecs,
+            normal,
+            size,
+        };
+        Ok(face)
+    }
+
+    fn read_lightmap(&mut self) -> Result<Lightmap> {
+        use std::ptr;
+
+        const NUM_BYTES: usize = LIGHTMAP_SIZE * LIGHTMAP_SIZE * 3;
+
+        let mut vec = Vec::with_capacity(NUM_BYTES);
+        self.inner
+            .by_ref()
+            .take(NUM_BYTES as u64)
+            .read_to_end(&mut vec)?;
+
+        if vec.len() != NUM_BYTES {
+            return Err(ErrorKind::UnexpectedEof.into());
+        }
+
+        let ptr = vec[..].as_ptr();
+
+        let ptr = ptr as *const [[[u8; 3]; LIGHTMAP_SIZE]; LIGHTMAP_SIZE];
+
+        Ok(Lightmap {
+            map: unsafe { ptr::read(ptr) },
+        })
+    }
+
+    fn read_lightvol(&mut self) -> Result<Lightvol> {
+        let ambient = [
+            self.inner.read_u8()?,
+            self.inner.read_u8()?,
+            self.inner.read_u8()?,
+        ];
+        let directional = [
+            self.inner.read_u8()?,
+            self.inner.read_u8()?,
+            self.inner.read_u8()?,
+        ];
+        let dir = [self.inner.read_u8()?, self.inner.read_u8()?];
+        Ok(Lightvol {
+            ambient,
+            directional,
+            dir,
+        })
+    }
+
+    fn read_visdata(&mut self) -> Result<VisData> {
+        let n_vecs = self.inner.read_i32::<LittleEndian>()?;
+        let sz_vecs = self.inner.read_i32::<LittleEndian>()?;
+        let vecs_size = n_vecs as u64 * sz_vecs as u64;
+        let mut vecs = Vec::with_capacity(vecs_size as usize);
+        self.inner.by_ref().take(vecs_size).read_to_end(&mut vecs)?;
+        let vis_data = VisData {
+            n_vecs,
+            sz_vecs,
+            vecs,
+        };
+        Ok(vis_data)
+    }
+}
+
+// TODO: Store all the allocated objects inline to improve cache usage
 #[derive(Debug)]
-pub struct BSP {
+pub struct Bsp {
     pub header: Header,
-    pub dir_entries: Vec<DirEntry>,
-    pub entities: Entity,
+    pub dir_entries: Directories,
+    pub entities: Entities,
     pub textures: Vec<Texture>,
     pub planes: Vec<Plane>,
     pub nodes: Vec<Node>,
@@ -440,50 +765,78 @@ pub struct BSP {
     pub mesh_verts: Vec<MeshVert>,
     pub effects: Vec<Effect>,
     pub faces: Vec<Face>,
-    pub vis_data : VisData,
+    pub lightmaps: Vec<Lightmap>,
+    pub lightvols: Vec<Lightvol>,
+    pub vis_data: VisData,
 }
 
-pub fn read_bsp(bytes: &[u8]) -> Result<BSP> {
-    let mut cursor = Cursor::new(bytes);
-    let header = read_header(&mut cursor)?;
-    let version = read_version(&mut cursor)?;
-    assert_eq!(version, 0x2e);
-    let dir_entries = read_directories(&mut cursor)?;
-    let entities = read_entities(&mut cursor, &dir_entries[0])?;
-    let textures = read_entry(&mut cursor, &dir_entries[1], read_texture)?;
-    let planes = read_entry(&mut cursor, &dir_entries[2], read_plane)?;
-    let nodes = read_entry(&mut cursor, &dir_entries[3], read_node)?;
-    let leafs = read_entry(&mut cursor, &dir_entries[4], read_leaf)?;
-    let leaf_faces = read_entry(&mut cursor, &dir_entries[5], read_leaf_face)?;
-    let leaf_brushes = read_entry(&mut cursor, &dir_entries[6], read_leaf_brush)?;
-    let models = read_entry(&mut cursor, &dir_entries[7], read_model)?;
-    let brushes = read_entry(&mut cursor, &dir_entries[8], read_brush)?;
-    let brush_sides = read_entry(&mut cursor, &dir_entries[9], read_brush_side)?;
-    let vertexes = read_entry(&mut cursor, &dir_entries[10], read_vertex)?;
-    let mesh_verts = read_entry(&mut cursor, &dir_entries[11], read_mesh_vert)?;
-    let effects = read_entry(&mut cursor, &dir_entries[12], read_effect)?;
-    let faces = read_entry(&mut cursor, &dir_entries[13], read_face)?;
-    cursor.set_position(dir_entries[16].offset as u64);
-    let vis_data = read_visdata(&mut cursor)?;
+pub fn read_bsp<R: Read + Seek>(reader: R) -> Result<Bsp> {
+    const EXPECTED_HEADER: Header = Header {
+        i: b'I',
+        b: b'B',
+        s: b'S',
+        p: b'P',
+    };
+    const EXPECTED_VERSION: i32 = 0x2e;
+
+    let mut reader = BspReader { inner: reader };
+    let header = reader.read_header()?;
+    let version = reader.read_version()?;
+
+    if header != EXPECTED_HEADER || version != EXPECTED_VERSION {
+        return Err(ErrorKind::InvalidData.into());
+    }
+
+    let dir_entries = reader.read_directories()?;
+    let entities = reader.read_entities(&dir_entries.entities)?;
+    let textures = reader.read_entry(&dir_entries.textures, |r| r.read_texture())?;
+    let planes = reader.read_entry(&dir_entries.planes, |r| r.read_plane())?;
+    let nodes = reader.read_entry(&dir_entries.nodes, |r| r.read_node())?;
+    let leafs = reader.read_entry(&dir_entries.leafs, |r| r.read_leaf())?;
+    let leaf_faces = reader.read_entry(&dir_entries.leaf_faces, |r| r.read_leaf_face())?;
+    let leaf_brushes = reader.read_entry(&dir_entries.leaf_brushes, |r| r.read_leaf_brush())?;
+    let models = reader.read_entry(&dir_entries.models, |r| r.read_model())?;
+    let brushes = reader.read_entry(&dir_entries.brushes, |r| r.read_brush())?;
+    let brush_sides = reader.read_entry(&dir_entries.brush_sides, |r| r.read_brush_side())?;
+    let vertexes = reader.read_entry(&dir_entries.vertexes, |r| r.read_vertex())?;
+    let mesh_verts = reader.read_entry(&dir_entries.mesh_verts, |r| r.read_mesh_vert())?;
+    let effects = reader.read_entry(&dir_entries.effects, |r| r.read_effect())?;
+    let faces = reader.read_entry(&dir_entries.faces, |r| r.read_face())?;
+    let lightmaps = reader.read_entry(&dir_entries.lightmaps, |r| r.read_lightmap())?;
+    let lightvols = reader.read_entry(&dir_entries.lightvols, |r| r.read_lightvol())?;
+    reader
+        .inner
+        .seek(SeekFrom::Start(dir_entries.visdata.offset as u64))?;
+    let vis_data = reader.read_visdata()?;
+
     Ok({
-        BSP {
-            header: header,
-            dir_entries: dir_entries,
-            entities: entities,
-            textures: textures,
-            planes: planes,
-            nodes: nodes,
-            leafs: leafs,
-            leaf_faces: leaf_faces,
-            leaf_brushes: leaf_brushes,
-            models: models,
-            brushes: brushes,
-            brush_sides: brush_sides,
-            vertexes: vertexes,
-            mesh_verts: mesh_verts,
-            effects: effects,
-            faces: faces,
-            vis_data: vis_data
+        Bsp {
+            header,
+            dir_entries,
+            entities,
+            textures,
+            planes,
+            nodes,
+            leafs,
+            leaf_faces,
+            leaf_brushes,
+            models,
+            brushes,
+            brush_sides,
+            vertexes,
+            mesh_verts,
+            effects,
+            faces,
+            lightmaps,
+            lightvols,
+            vis_data,
         }
     })
+}
+
+#[test]
+fn random_file() {
+    use std::fs::File;
+
+    read_bsp(&mut File::open("test.bsp").expect("Cannot open file")).unwrap();
 }
