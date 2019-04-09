@@ -1,4 +1,5 @@
 use arrayvec::ArrayString;
+use bitflags::bitflags;
 use byteorder::{LittleEndian, ReadBytesExt};
 use std::{
     fmt,
@@ -32,24 +33,24 @@ macro_rules! elsize {
 }
 
 #[derive(Debug, Default)]
-pub struct Directories {
-    pub entities: DirEntry,
-    pub textures: DirEntry,
-    pub planes: DirEntry,
-    pub nodes: DirEntry,
-    pub leafs: DirEntry,
-    pub leaf_faces: DirEntry,
-    pub leaf_brushes: DirEntry,
-    pub models: DirEntry,
-    pub brushes: DirEntry,
-    pub brush_sides: DirEntry,
-    pub vertexes: DirEntry,
-    pub mesh_verts: DirEntry,
-    pub effects: DirEntry,
-    pub faces: DirEntry,
-    pub lightmaps: DirEntry,
-    pub lightvols: DirEntry,
-    pub visdata: DirEntry,
+struct Directories {
+    entities: DirEntry,
+    textures: DirEntry,
+    planes: DirEntry,
+    nodes: DirEntry,
+    leafs: DirEntry,
+    leaf_faces: DirEntry,
+    leaf_brushes: DirEntry,
+    models: DirEntry,
+    brushes: DirEntry,
+    brush_sides: DirEntry,
+    vertexes: DirEntry,
+    mesh_verts: DirEntry,
+    effects: DirEntry,
+    faces: DirEntry,
+    lightmaps: DirEntry,
+    lightvols: DirEntry,
+    visdata: DirEntry,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -61,9 +62,9 @@ pub struct Header {
 }
 
 #[derive(Debug, Default)]
-pub struct DirEntry {
-    pub offset: i32,
-    pub length: i32,
+struct DirEntry {
+    offset: i32,
+    length: i32,
 }
 
 elsize! {
@@ -162,11 +163,69 @@ impl<'a> Entity<'a> {
     }
 }
 
+bitflags! {
+    pub struct SurfFlags: u32 {
+        const NODAMAGE    = 0b000000000000000001; // Never give falling damage
+        const SLICK       = 0b000000000000000010; // Effects game physics
+        const SKY         = 0b000000000000000100; // Lighting from environment map
+        const LADDER      = 0b000000000000001000; // Climbable ladder
+        const NOIMPACT    = 0b000000000000010000; // Don't make missile explosions
+        const NOMARKS     = 0b000000000000100000; // Don't leave missile marks
+        const FLESH       = 0b000000000001000000; // Make flesh sounds and effects
+        const NODRAW      = 0b000000000010000000; // Don't generate a drawsurface at all
+        const HINT        = 0b000000000100000000; // Make a primary bsp splitter
+        const SKIP        = 0b000000001000000000; // Completely ignore, allowing non-closed brushes
+        const NOLIGHTMAP  = 0b000000010000000000; // Surface doesn't need a lightmap
+        const POINTLIGHT  = 0b000000100000000000; // Generate lighting info at vertexes
+        const METALSTEPS  = 0b000001000000000000; // Clanking footsteps
+        const NOSTEPS     = 0b000010000000000000; // No footstep sounds
+        const NONSOLID    = 0b000100000000000000; // Don't collide against curves with this set
+        const LIGHTFILTER = 0b001000000000000000; // Act as a light filter during q3map -light
+        const ALPHASHADOW = 0b010000000000000000; // Do per-pixel light shadow casting in q3map
+        const NODLIGHT    = 0b100000000000000000; // Never add dynamic lights
+    }
+}
+
+bitflags! {
+    pub struct ContentFlags: u32 {
+        const SOLID          = 0b00000000000000000000000000000001; // An eye is never valid in a solid
+        const LAVA           = 0b00000000000000000000000000001000;
+        const SLIME          = 0b00000000000000000000000000010000;
+        const WATER          = 0b00000000000000000000000000100000;
+        const FOG            = 0b00000000000000000000000001000000;
+        const NOTTEAM1       = 0b00000000000000000000000010000000;
+        const NOTTEAM2       = 0b00000000000000000000000100000000;
+        const NOBOTCLIP      = 0b00000000000000000000001000000000;
+
+        const AREAPORTAL     = 0b00000000000000001000000000000000;
+
+        const PLAYERCLIP     = 0b00000000000000010000000000000000;
+        const MONSTERCLIP    = 0b00000000000000100000000000000000;
+        // bot specific contents types
+        const TELEPORTER     = 0b00000000000001000000000000000000;
+        const JUMPPAD        = 0b00000000000010000000000000000000;
+        const CLUSTERPORTAL  = 0b00000000000100000000000000000000;
+        const DONOTENTER     = 0b00000000001000000000000000000000;
+        const BOTCLIP        = 0b00000000010000000000000000000000;
+        const MOVER          = 0b00000000100000000000000000000000;
+
+        const ORIGIN         = 0b00000001000000000000000000000000; // removed before bsping an entity
+
+        const BODY           = 0b00000010000000000000000000000000; // should never be on a brush, only in game
+        const CORPSE         = 0b00000100000000000000000000000000;
+        const DETAIL         = 0b00001000000000000000000000000000; // brushes not used for the bsp
+        const STRUCTURAL     = 0b00010000000000000000000000000000; // brushes used for the bsp
+        const TRANSLUCENT    = 0b00100000000000000000000000000000; // don't consume surface fragments inside
+        const TRIGGER        = 0b01000000000000000000000000000000;
+        const NODROP         = 0b10000000000000000000000000000000; // don't leave bodies or items (death fog, lava)
+    }
+}
+
 #[derive(Debug)]
 pub struct Texture {
     pub name: ArrayString<[u8; 64]>,
-    pub flags: i32,
-    pub contents: i32,
+    pub flags: SurfFlags,
+    pub contents: ContentFlags,
 }
 
 impl ElementSize for Texture {
@@ -435,8 +494,10 @@ impl<R: Read> BspReader<R> {
 
     fn read_texture(&mut self) -> Result<Texture> {
         let name = self.read_name()?;
-        let flags = self.inner.read_i32::<LittleEndian>()?;
-        let contents = self.inner.read_i32::<LittleEndian>()?;
+        let flags = SurfFlags::from_bits(self.inner.read_u32::<LittleEndian>()?)
+            .ok_or_else(|| Error::from(ErrorKind::InvalidData))?;
+        let contents = ContentFlags::from_bits(self.inner.read_u32::<LittleEndian>()?)
+            .ok_or_else(|| Error::from(ErrorKind::InvalidData))?;
         Ok(Texture {
             name,
             flags,
@@ -610,10 +671,19 @@ impl<R: Read> BspReader<R> {
     }
 
     fn read_name(&mut self) -> Result<ArrayString<[u8; 64]>> {
+        use std::str;
+
         let mut name_buf = [0u8; 64];
         self.inner.read_exact(&mut name_buf)?;
-        ArrayString::from_byte_string(&name_buf)
-            .map_err(|err| Error::new(ErrorKind::InvalidData, err))
+        let zero_pos = name_buf
+            .iter()
+            .position(|c| *c == 0)
+            .ok_or_else(|| Error::from(ErrorKind::InvalidData))?;
+        let name = &name_buf[..zero_pos];
+        Ok(ArrayString::from(
+            str::from_utf8(name).map_err(|err| Error::new(ErrorKind::InvalidData, err))?,
+        )
+        .expect("Programmer error: it should be impossible for the string to exceed the capacity"))
     }
 
     fn read_effect(&mut self) -> Result<Effect> {
@@ -750,7 +820,6 @@ impl<R: Read> BspReader<R> {
 #[derive(Debug)]
 pub struct Bsp {
     pub header: Header,
-    pub dir_entries: Directories,
     pub entities: Entities,
     pub textures: Vec<Texture>,
     pub planes: Vec<Plane>,
@@ -812,7 +881,6 @@ pub fn read_bsp<R: Read + Seek>(reader: R) -> Result<Bsp> {
     Ok({
         Bsp {
             header,
-            dir_entries,
             entities,
             textures,
             planes,
@@ -838,5 +906,7 @@ pub fn read_bsp<R: Read + Seek>(reader: R) -> Result<Bsp> {
 fn random_file() {
     use std::fs::File;
 
-    read_bsp(&mut File::open("test.bsp").expect("Cannot open file")).unwrap();
+    let bsp = read_bsp(&mut File::open("test.bsp").expect("Cannot open file")).unwrap();
+
+    println!("{:#?}", bsp.textures);
 }
