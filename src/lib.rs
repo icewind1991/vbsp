@@ -1,9 +1,16 @@
+#![cfg_attr(feature = "bench", feature(test))]
+
+#[cfg(feature = "bench")]
+extern crate test;
+
 use arrayvec::ArrayString;
 use bitflags::bitflags;
+use bv::BitVec;
 use byteorder::{LittleEndian, ReadBytesExt};
 use std::{
     fmt,
     io::{Error, ErrorKind, Read, Result, Seek, SeekFrom, Take},
+    ops::Deref,
 };
 
 trait ElementSize {
@@ -165,59 +172,67 @@ impl<'a> Entity<'a> {
 
 bitflags! {
     pub struct SurfFlags: u32 {
-        const NODAMAGE    = 0b000000000000000001; // Never give falling damage
-        const SLICK       = 0b000000000000000010; // Effects game physics
-        const SKY         = 0b000000000000000100; // Lighting from environment map
-        const LADDER      = 0b000000000000001000; // Climbable ladder
-        const NOIMPACT    = 0b000000000000010000; // Don't make missile explosions
-        const NOMARKS     = 0b000000000000100000; // Don't leave missile marks
-        const FLESH       = 0b000000000001000000; // Make flesh sounds and effects
-        const NODRAW      = 0b000000000010000000; // Don't generate a drawsurface at all
-        const HINT        = 0b000000000100000000; // Make a primary bsp splitter
-        const SKIP        = 0b000000001000000000; // Completely ignore, allowing non-closed brushes
-        const NOLIGHTMAP  = 0b000000010000000000; // Surface doesn't need a lightmap
-        const POINTLIGHT  = 0b000000100000000000; // Generate lighting info at vertexes
-        const METALSTEPS  = 0b000001000000000000; // Clanking footsteps
-        const NOSTEPS     = 0b000010000000000000; // No footstep sounds
-        const NONSOLID    = 0b000100000000000000; // Don't collide against curves with this set
-        const LIGHTFILTER = 0b001000000000000000; // Act as a light filter during q3map -light
-        const ALPHASHADOW = 0b010000000000000000; // Do per-pixel light shadow casting in q3map
-        const NODLIGHT    = 0b100000000000000000; // Never add dynamic lights
+        const NODAMAGE    = 0b0000_0000_0000_0000_0001; // Never give falling damage
+        const SLICK       = 0b0000_0000_0000_0000_0010; // Effects game physics
+        const SKY         = 0b0000_0000_0000_0000_0100; // Lighting from environment map
+        const LADDER      = 0b0000_0000_0000_0000_1000; // Climbable ladder
+        const NOIMPACT    = 0b0000_0000_0000_0001_0000; // Don't make missile explosions
+        const NOMARKS     = 0b0000_0000_0000_0010_0000; // Don't leave missile marks
+        const FLESH       = 0b0000_0000_0000_0100_0000; // Make flesh sounds and effects
+        const NODRAW      = 0b0000_0000_0000_1000_0000; // Don't generate a drawsurface at all
+        const HINT        = 0b0000_0000_0001_0000_0000; // Make a primary bsp splitter
+        const SKIP        = 0b0000_0000_0010_0000_0000; // Completely ignore, allowing non-closed brushes
+        const NOLIGHTMAP  = 0b0000_0000_0100_0000_0000; // Surface doesn't need a lightmap
+        const POINTLIGHT  = 0b0000_0000_1000_0000_0000; // Generate lighting info at vertexes
+        const METALSTEPS  = 0b0000_0001_0000_0000_0000; // Clanking footsteps
+        const NOSTEPS     = 0b0000_0010_0000_0000_0000; // No footstep sounds
+        const NONSOLID    = 0b0000_0100_0000_0000_0000; // Don't collide against curves with this set
+        const LIGHTFILTER = 0b0000_1000_0000_0000_0000; // Act as a light filter during q3map -light
+        const ALPHASHADOW = 0b0001_0000_0000_0000_0000; // Do per-pixel light shadow casting in q3map
+        const NODLIGHT    = 0b0010_0000_0000_0000_0000; // Never add dynamic lights
     }
 }
 
 bitflags! {
     pub struct ContentFlags: u32 {
-        const SOLID          = 0b00000000000000000000000000000001; // An eye is never valid in a solid
-        const LAVA           = 0b00000000000000000000000000001000;
-        const SLIME          = 0b00000000000000000000000000010000;
-        const WATER          = 0b00000000000000000000000000100000;
-        const FOG            = 0b00000000000000000000000001000000;
-        const NOTTEAM1       = 0b00000000000000000000000010000000;
-        const NOTTEAM2       = 0b00000000000000000000000100000000;
-        const NOBOTCLIP      = 0b00000000000000000000001000000000;
+        // An eye is never valid in a solid
+        const SOLID          = 0b0000_0000_0000_0000_0000_0000_0000_0001;
+        const LAVA           = 0b0000_0000_0000_0000_0000_0000_0000_1000;
+        const SLIME          = 0b0000_0000_0000_0000_0000_0000_0001_0000;
+        const WATER          = 0b0000_0000_0000_0000_0000_0000_0010_0000;
+        const FOG            = 0b0000_0000_0000_0000_0000_0000_0100_0000;
+        const NOTTEAM1       = 0b0000_0000_0000_0000_0000_0000_1000_0000;
+        const NOTTEAM2       = 0b0000_0000_0000_0000_0000_0001_0000_0000;
+        const NOBOTCLIP      = 0b0000_0000_0000_0000_0000_0010_0000_0000;
 
-        const AREAPORTAL     = 0b00000000000000001000000000000000;
+        const AREAPORTAL     = 0b0000_0000_0000_0000_1000_0000_0000_0000;
 
-        const PLAYERCLIP     = 0b00000000000000010000000000000000;
-        const MONSTERCLIP    = 0b00000000000000100000000000000000;
-        // bot specific contents types
-        const TELEPORTER     = 0b00000000000001000000000000000000;
-        const JUMPPAD        = 0b00000000000010000000000000000000;
-        const CLUSTERPORTAL  = 0b00000000000100000000000000000000;
-        const DONOTENTER     = 0b00000000001000000000000000000000;
-        const BOTCLIP        = 0b00000000010000000000000000000000;
-        const MOVER          = 0b00000000100000000000000000000000;
+        const PLAYERCLIP     = 0b0000_0000_0000_0001_0000_0000_0000_0000;
+        const MONSTERCLIP    = 0b0000_0000_0000_0010_0000_0000_0000_0000;
 
-        const ORIGIN         = 0b00000001000000000000000000000000; // removed before bsping an entity
+        // Bot-specific contents types
+        const TELEPORTER     = 0b0000_0000_0000_0100_0000_0000_0000_0000;
+        const JUMPPAD        = 0b0000_0000_0000_1000_0000_0000_0000_0000;
+        const CLUSTERPORTAL  = 0b0000_0000_0001_0000_0000_0000_0000_0000;
+        const DONOTENTER     = 0b0000_0000_0010_0000_0000_0000_0000_0000;
+        const BOTCLIP        = 0b0000_0000_0100_0000_0000_0000_0000_0000;
+        const MOVER          = 0b0000_0000_1000_0000_0000_0000_0000_0000;
 
-        const BODY           = 0b00000010000000000000000000000000; // should never be on a brush, only in game
-        const CORPSE         = 0b00000100000000000000000000000000;
-        const DETAIL         = 0b00001000000000000000000000000000; // brushes not used for the bsp
-        const STRUCTURAL     = 0b00010000000000000000000000000000; // brushes used for the bsp
-        const TRANSLUCENT    = 0b00100000000000000000000000000000; // don't consume surface fragments inside
-        const TRIGGER        = 0b01000000000000000000000000000000;
-        const NODROP         = 0b10000000000000000000000000000000; // don't leave bodies or items (death fog, lava)
+        // Removed before bsping an entity
+        const ORIGIN         = 0b0000_0001_0000_0000_0000_0000_0000_0000;
+
+        // Should never be on a brush, only in game
+        const BODY           = 0b0000_0010_0000_0000_0000_0000_0000_0000;
+        const CORPSE         = 0b0000_0100_0000_0000_0000_0000_0000_0000;
+        // Brushes not used for the bsp
+        const DETAIL         = 0b0000_1000_0000_0000_0000_0000_0000_0000;
+        // Brushes used for the bsp
+        const STRUCTURAL     = 0b0001_0000_0000_0000_0000_0000_0000_0000;
+        // Don't consume surface fragments inside
+        const TRANSLUCENT    = 0b0010_0000_0000_0000_0000_0000_0000_0000;
+        const TRIGGER        = 0b0100_0000_0000_0000_0000_0000_0000_0000;
+        // Don't leave bodies or items (death fog, lava)
+        const NODROP         = 0b1000_0000_0000_0000_0000_0000_0000_0000;
     }
 }
 
@@ -382,9 +397,9 @@ elsize! {
 
 #[derive(Debug)]
 pub struct VisData {
-    pub n_vecs: i32,   // Number of vectors.
-    pub sz_vecs: i32,  // Size of each vector, in bytes.
-    pub vecs: Vec<u8>, // Visibility data. One bit per cluster per vector.
+    pub n_vecs: i32,      // Number of vectors.
+    pub sz_vecs: i32,     // Size of each vector, in bytes.
+    pub vecs: BitVec<u8>, // Visibility data. One bit per cluster per vector.
 }
 
 struct BspReader<R> {
@@ -413,25 +428,21 @@ impl<R: Read + Seek> BspReader<R> {
             return Err(ErrorKind::InvalidData.into());
         }
 
-        let mut entries = Vec::with_capacity(dir_entry.length as usize / T::SIZE);
+        let num_entries = dir_entry.length as usize / T::SIZE;
+        let mut entries = Vec::with_capacity(num_entries);
         self.inner.seek(SeekFrom::Start(dir_entry.offset as u64))?;
         let mut reader = BspReader {
             inner: self.inner.by_ref().take(dir_entry.length as u64),
         };
-        loop {
-            match f(&mut reader) {
-                Ok(entry) => entries.push(entry),
-                Err(e) => {
-                    if e.kind() != ErrorKind::UnexpectedEof || reader.inner.bytes().next().is_some()
-                    {
-                        return Err(e);
-                    } else {
-                        break;
-                    }
-                }
-            }
+
+        for _ in 0..num_entries {
+            entries.push(f(&mut reader)?);
         }
-        entries.shrink_to_fit();
+
+        if entries.len() != num_entries {
+            return Err(ErrorKind::InvalidData.into());
+        }
+
         Ok(entries)
     }
 }
@@ -804,15 +815,44 @@ impl<R: Read> BspReader<R> {
     fn read_visdata(&mut self) -> Result<VisData> {
         let n_vecs = self.inner.read_i32::<LittleEndian>()?;
         let sz_vecs = self.inner.read_i32::<LittleEndian>()?;
-        let vecs_size = n_vecs as u64 * sz_vecs as u64;
-        let mut vecs = Vec::with_capacity(vecs_size as usize);
-        self.inner.by_ref().take(vecs_size).read_to_end(&mut vecs)?;
+        let vecs_size = n_vecs as usize * sz_vecs as usize;
+        let mut vecs = Vec::with_capacity(vecs_size);
+        self.inner
+            .by_ref()
+            .take(vecs_size as u64)
+            .read_to_end(&mut vecs)?;
+
+        if vecs.len() != vecs_size {
+            return Err(Error::from(ErrorKind::InvalidData));
+        }
+
+        let vecs = BitVec::from_bits(vecs);
+
         let vis_data = VisData {
             n_vecs,
             sz_vecs,
             vecs,
         };
         Ok(vis_data)
+    }
+}
+
+pub struct Handle<'a, T> {
+    bsp: &'a Bsp,
+    data: &'a T,
+}
+
+impl<'a, T> Handle<'a, T> {
+    pub fn as_ref(&self) -> &'a T {
+        self.data
+    }
+}
+
+impl<T> Deref for Handle<'_, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.data
     }
 }
 
@@ -839,74 +879,220 @@ pub struct Bsp {
     pub vis_data: VisData,
 }
 
-pub fn read_bsp<R: Read + Seek>(reader: R) -> Result<Bsp> {
-    const EXPECTED_HEADER: Header = Header {
-        i: b'I',
-        b: b'B',
-        s: b'S',
-        p: b'P',
-    };
-    const EXPECTED_VERSION: i32 = 0x2e;
+impl Bsp {
+    pub fn read<R: Read + Seek>(reader: R) -> Result<Self> {
+        const EXPECTED_HEADER: Header = Header {
+            i: b'I',
+            b: b'B',
+            s: b'S',
+            p: b'P',
+        };
+        // TODO: Use this to decide on the version to parse it as
+        const EXPECTED_VERSION: i32 = 0x2e;
 
-    let mut reader = BspReader { inner: reader };
-    let header = reader.read_header()?;
-    let version = reader.read_version()?;
+        let mut reader = BspReader { inner: reader };
+        let header = reader.read_header()?;
+        let version = reader.read_version()?;
 
-    if header != EXPECTED_HEADER || version != EXPECTED_VERSION {
-        return Err(ErrorKind::InvalidData.into());
+        if header != EXPECTED_HEADER || version != EXPECTED_VERSION {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                format!("Invalid header or version"),
+            ));
+        }
+
+        let dir_entries = reader.read_directories()?;
+        let entities = reader.read_entities(&dir_entries.entities)?;
+        let textures = reader.read_entry(&dir_entries.textures, |r| r.read_texture())?;
+        let planes = reader.read_entry(&dir_entries.planes, |r| r.read_plane())?;
+        let nodes = reader.read_entry(&dir_entries.nodes, |r| r.read_node())?;
+        let leafs = reader.read_entry(&dir_entries.leafs, |r| r.read_leaf())?;
+        let leaf_faces = reader.read_entry(&dir_entries.leaf_faces, |r| r.read_leaf_face())?;
+        let leaf_brushes = reader.read_entry(&dir_entries.leaf_brushes, |r| r.read_leaf_brush())?;
+        let models = reader.read_entry(&dir_entries.models, |r| r.read_model())?;
+        let brushes = reader.read_entry(&dir_entries.brushes, |r| r.read_brush())?;
+        let brush_sides = reader.read_entry(&dir_entries.brush_sides, |r| r.read_brush_side())?;
+        let vertexes = reader.read_entry(&dir_entries.vertexes, |r| r.read_vertex())?;
+        let mesh_verts = reader.read_entry(&dir_entries.mesh_verts, |r| r.read_mesh_vert())?;
+        let effects = reader.read_entry(&dir_entries.effects, |r| r.read_effect())?;
+        let faces = reader.read_entry(&dir_entries.faces, |r| r.read_face())?;
+        let lightmaps = reader.read_entry(&dir_entries.lightmaps, |r| r.read_lightmap())?;
+        let lightvols = reader.read_entry(&dir_entries.lightvols, |r| r.read_lightvol())?;
+        reader
+            .inner
+            .seek(SeekFrom::Start(dir_entries.visdata.offset as u64))?;
+        let vis_data = reader.read_visdata()?;
+
+        Ok({
+            Bsp {
+                header,
+                entities,
+                textures,
+                planes,
+                nodes,
+                leafs,
+                leaf_faces,
+                leaf_brushes,
+                models,
+                brushes,
+                brush_sides,
+                vertexes,
+                mesh_verts,
+                effects,
+                faces,
+                lightmaps,
+                lightvols,
+                vis_data,
+            }
+        })
     }
 
-    let dir_entries = reader.read_directories()?;
-    let entities = reader.read_entities(&dir_entries.entities)?;
-    let textures = reader.read_entry(&dir_entries.textures, |r| r.read_texture())?;
-    let planes = reader.read_entry(&dir_entries.planes, |r| r.read_plane())?;
-    let nodes = reader.read_entry(&dir_entries.nodes, |r| r.read_node())?;
-    let leafs = reader.read_entry(&dir_entries.leafs, |r| r.read_leaf())?;
-    let leaf_faces = reader.read_entry(&dir_entries.leaf_faces, |r| r.read_leaf_face())?;
-    let leaf_brushes = reader.read_entry(&dir_entries.leaf_brushes, |r| r.read_leaf_brush())?;
-    let models = reader.read_entry(&dir_entries.models, |r| r.read_model())?;
-    let brushes = reader.read_entry(&dir_entries.brushes, |r| r.read_brush())?;
-    let brush_sides = reader.read_entry(&dir_entries.brush_sides, |r| r.read_brush_side())?;
-    let vertexes = reader.read_entry(&dir_entries.vertexes, |r| r.read_vertex())?;
-    let mesh_verts = reader.read_entry(&dir_entries.mesh_verts, |r| r.read_mesh_vert())?;
-    let effects = reader.read_entry(&dir_entries.effects, |r| r.read_effect())?;
-    let faces = reader.read_entry(&dir_entries.faces, |r| r.read_face())?;
-    let lightmaps = reader.read_entry(&dir_entries.lightmaps, |r| r.read_lightmap())?;
-    let lightvols = reader.read_entry(&dir_entries.lightvols, |r| r.read_lightvol())?;
-    reader
-        .inner
-        .seek(SeekFrom::Start(dir_entries.visdata.offset as u64))?;
-    let vis_data = reader.read_visdata()?;
+    pub fn leaf(&self, n: usize) -> Option<Handle<'_, Leaf>> {
+        self.leafs.get(n).map(|leaf| Handle {
+            bsp: self,
+            data: leaf,
+        })
+    }
 
-    Ok({
-        Bsp {
-            header,
-            entities,
-            textures,
-            planes,
-            nodes,
-            leafs,
-            leaf_faces,
-            leaf_brushes,
-            models,
-            brushes,
-            brush_sides,
-            vertexes,
-            mesh_verts,
-            effects,
-            faces,
-            lightmaps,
-            lightvols,
-            vis_data,
+    pub fn plane(&self, n: usize) -> Option<Handle<'_, Plane>> {
+        self.planes.get(n).map(|plane| Handle {
+            bsp: self,
+            data: plane,
+        })
+    }
+
+    pub fn face(&self, n: usize) -> Option<Handle<'_, Face>> {
+        self.faces.get(n).map(|face| Handle {
+            bsp: self,
+            data: face,
+        })
+    }
+
+    pub fn texture(&self, n: usize) -> Option<&Texture> {
+        self.textures.get(n)
+    }
+
+    pub fn node(&self, n: usize) -> Option<Handle<'_, Node>> {
+        self.nodes.get(n).map(|node| Handle {
+            bsp: self,
+            data: node,
+        })
+    }
+
+    pub fn root_node(&self) -> Option<Handle<'_, Node>> {
+        self.node(0)
+    }
+
+    pub fn leaf_at(&self, point: [f32; 3]) -> Option<Handle<'_, Leaf>> {
+        let mut current = self.root_node()?;
+
+        loop {
+            let plane = current.plane()?;
+            let dot: f32 = point
+                .iter()
+                .zip(plane.normal.iter())
+                .map(|(a, b)| a * b)
+                .sum();
+
+            let [front, back] = current.children;
+
+            let next = if dot < plane.dist { back } else { front };
+
+            if next < 0 {
+                return self.leaf((!next) as usize);
+            } else {
+                current = self.node(next as usize)?;
+            }
         }
-    })
+    }
 }
 
-#[test]
-fn random_file() {
-    use std::fs::File;
+impl Handle<'_, Face> {
+    pub fn texture(&self) -> Option<&Texture> {
+        self.bsp.texture(self.texture as _)
+    }
+}
 
-    let bsp = read_bsp(&mut File::open("test.bsp").expect("Cannot open file")).unwrap();
+impl Handle<'_, Node> {
+    pub fn plane(&self) -> Option<Handle<'_, Plane>> {
+        self.bsp.plane(self.plane as _)
+    }
+}
 
-    println!("{:#?}", bsp.textures);
+impl<'a> Handle<'a, Leaf> {
+    pub fn visible_set(&self) -> Option<impl Iterator<Item = Handle<'a, Leaf>>> {
+        // TODO: Use `itertools::Either`?
+        let cluster = self.cluster;
+        let bsp = self.bsp;
+
+        if cluster < 0 {
+            None
+        } else {
+            Some(
+                bsp.leafs
+                    .iter()
+                    .filter(move |leaf| {
+                        if leaf.cluster == cluster {
+                            true
+                        } else if leaf.cluster > 0 {
+                            let cluster_vis_start =
+                                leaf.cluster as u64 * bsp.vis_data.sz_vecs as u64 * 8;
+                            bsp.vis_data.vecs[cluster_vis_start + cluster as u64]
+                        } else {
+                            false
+                        }
+                    })
+                    .map(move |leaf| Handle { bsp, data: leaf }),
+            )
+        }
+    }
+
+    pub fn faces(&self) -> impl Iterator<Item = Handle<'a, Face>> {
+        let start = self.leaf_face as usize;
+        let end = start + self.num_leaf_faces as usize;
+        let bsp = self.bsp;
+        bsp.leaf_faces[start..end]
+            .iter()
+            .filter_map(move |leaf_face| bsp.face(leaf_face.face as usize))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Bsp;
+
+    #[test]
+    fn random_file() {
+        use std::fs::File;
+
+        Bsp::read(&mut File::open("test.bsp").expect("Cannot open file")).unwrap();
+    }
+}
+
+#[cfg(feature = "bench")]
+mod benches {
+    use super::Bsp;
+    use test::Bencher;
+
+    const MAP_BYTES: &[u8] = include_bytes!("../test.bsp");
+
+    #[bench]
+    fn from_bytes(b: &mut Bencher) {
+        use std::io::Cursor;
+
+        b.iter(|| {
+            Bsp::read(&mut Cursor::new(MAP_BYTES)).unwrap();
+        });
+    }
+
+    #[bench]
+    fn leaf_at(b: &mut Bencher) {
+        use std::io::Cursor;
+
+        let bsp = Bsp::read(&mut Cursor::new(MAP_BYTES)).unwrap();
+
+        b.iter(|| {
+            test::black_box(bsp.leaf_at(test::black_box([0., 0., 0.])));
+        });
+    }
 }

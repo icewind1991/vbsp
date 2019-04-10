@@ -10,6 +10,10 @@ description = "Crate to load BSP files efficiently - currently only works for Qu
 license = "MIT"
 
 [dependencies]
-bitflags = "1.0"
-byteorder = "0.5"
 arrayvec = "0.4"
+bitflags = "1.0"
+bv = "0.11"
+byteorder = "0.5"
+
+[features]
+bench = []
