@@ -1,13 +1,12 @@
 [package]
 name = "bsp"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Vurich <jackefransham@gmail.com>"]
-edition = "2018"
-
 homepage = "https://github.com/Vurich/bsp"
 repository = "https://github.com/Vurich/bsp"
 description = "Crate to load BSP files efficiently - currently only works for Quake 3 BSP files. Fork of `quake3_loader` crate."
 license = "MIT"
+edition = "2018"
 
 [dependencies]
 arrayvec = "0.4"
