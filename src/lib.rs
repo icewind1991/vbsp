@@ -215,9 +215,9 @@ impl<'a> Entity<'a> {
 }
 
 bitflags! {
-    pub struct SurfFlags: u32 {
+    pub struct SurfaceFlags: u32 {
         const NODAMAGE    = 0b0000_0000_0000_0000_0001; // Never give falling damage
-        const SLICK       = 0b0000_0000_0000_0000_0010; // Effects game physics
+        const SLICK       = 0b0000_0000_0000_0000_0010; // Affects game physics
         const SKY         = 0b0000_0000_0000_0000_0100; // Lighting from environment map
         const LADDER      = 0b0000_0000_0000_0000_1000; // Climbable ladder
         const NOIMPACT    = 0b0000_0000_0000_0001_0000; // Don't make missile explosions
@@ -234,6 +234,12 @@ bitflags! {
         const LIGHTFILTER = 0b0000_1000_0000_0000_0000; // Act as a light filter during q3map -light
         const ALPHASHADOW = 0b0001_0000_0000_0000_0000; // Do per-pixel light shadow casting in q3map
         const NODLIGHT    = 0b0010_0000_0000_0000_0000; // Never add dynamic lights
+    }
+}
+
+impl SurfaceFlags {
+    pub fn should_draw(&self) -> bool {
+        !self.intersects(Self::HINT | Self::SKIP | Self::NODRAW | Self::LIGHTFILTER)
     }
 }
 
@@ -283,7 +289,7 @@ bitflags! {
 #[derive(Debug, Clone)]
 pub struct Texture {
     pub name: ArrayString<[u8; 64]>,
-    pub flags: SurfFlags,
+    pub flags: SurfaceFlags,
     pub contents: ContentFlags,
 }
 
@@ -440,7 +446,7 @@ elsize! {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct VisData {
     pub n_vecs: u32,      // Number of vectors.
     pub sz_vecs: u32,     // Size of each vector, in bytes.
@@ -550,7 +556,7 @@ impl<R: Read> BspReader<R> {
     fn read_texture(&mut self) -> io::Result<Texture> {
         let name = self.read_name()?;
         let flags =
-            SurfFlags::from_bits(self.inner.read_u32::<LittleEndian>()?).ok_or_else(|| {
+            SurfaceFlags::from_bits(self.inner.read_u32::<LittleEndian>()?).ok_or_else(|| {
                 Error::new(
                     ErrorKind::InvalidData,
                     format!("Invalid surface flag in texture: {}", name),
@@ -872,24 +878,32 @@ impl<R: Read> BspReader<R> {
         })
     }
 
-    fn read_visdata(&mut self) -> io::Result<VisData> {
+    fn read_visdata(&mut self, entry: &DirEntry) -> io::Result<VisData> {
+        if (entry.length as usize) < std::mem::size_of::<u32>() * 2 {
+            return Ok(VisData::default());
+        }
+
         let n_vecs = self.inner.read_u32::<LittleEndian>()?;
         let sz_vecs = self.inner.read_u32::<LittleEndian>()?;
-        let vecs_size = n_vecs as usize * sz_vecs as usize;
-        let mut vecs = Vec::with_capacity(vecs_size);
+        let vecs_size = n_vecs as u64 * sz_vecs as u64;
+        let mut vecs = Vec::with_capacity(
+            vecs_size
+                .try_into()
+                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?,
+        );
         self.inner
             .by_ref()
             .take(vecs_size as u64)
             .read_to_end(&mut vecs)?;
 
-        if vecs.len() < vecs_size {
+        if (vecs.len() as u64) < vecs_size {
             return Err(Error::new(
                 ErrorKind::InvalidData,
                 format!("Unexpected EOF while reading VisData"),
             ));
         }
 
-        if vecs.len() > vecs_size {
+        if (vecs.len() as u64) > vecs_size {
             return Err(Error::new(
                 ErrorKind::InvalidData,
                 format!("Extra data at end of file"),
@@ -1049,7 +1063,11 @@ impl Bsp {
         if header != EXPECTED_HEADER || version != EXPECTED_VERSION {
             return Err(Error::new(
                 ErrorKind::InvalidData,
-                format!("Invalid header or version"),
+                format!(
+                    "Invalid header or version (expected {:?}, got {:?})",
+                    (EXPECTED_HEADER, EXPECTED_VERSION),
+                    (header, version)
+                ),
             ));
         }
 
@@ -1072,10 +1090,11 @@ impl Bsp {
         let faces = reader.read_entry(&dir_entries.faces, |r| r.read_face())?;
         let lightmaps = reader.read_entry(&dir_entries.lightmaps, |r| r.read_lightmap())?;
         let lightvols = reader.read_entry(&dir_entries.lightvols, |r| r.read_lightvol())?;
+
         reader
             .inner
             .seek(SeekFrom::Start(dir_entries.visdata.offset as u64))?;
-        let vis_data = reader.read_visdata()?;
+        let vis_data = reader.read_visdata(&dir_entries.visdata)?;
 
         Ok({
             Bsp {
@@ -1137,6 +1156,10 @@ impl Bsp {
         self.node(0)
     }
 
+    pub fn models(&self) -> impl Iterator<Item = Handle<'_, Model>> {
+        self.models.iter().map(move |m| Handle::new(self, m))
+    }
+
     pub fn leaf_at(&self, point: [f32; 3]) -> Option<Handle<'_, Leaf>> {
         let mut current = self.root_node()?;
 
@@ -1164,6 +1187,18 @@ impl Bsp {
 impl<'a, T> Handle<'a, T> {
     pub fn new(bsp: &'a Bsp, data: &'a T) -> Self {
         Handle { bsp, data }
+    }
+}
+
+impl<'a> Handle<'a, Model> {
+    pub fn faces(&self) -> impl Iterator<Item = Handle<'a, Face>> {
+        let start = self.face as usize;
+        let end = start + self.num_faces as usize;
+        let bsp = self.bsp;
+
+        bsp.faces[start..end]
+            .iter()
+            .map(move |face| Handle::new(bsp, face))
     }
 }
 
