@@ -1,8 +1,3 @@
-#![cfg_attr(feature = "bench", feature(test))]
-
-#[cfg(feature = "bench")]
-extern crate test;
-
 use arrayvec::ArrayString;
 use bitflags::bitflags;
 use bv::BitVec;
@@ -1282,33 +1277,5 @@ mod tests {
         use std::fs::File;
 
         Bsp::read(&mut File::open("test.bsp").expect("Cannot open file")).unwrap();
-    }
-}
-
-#[cfg(feature = "bench")]
-mod benches {
-    use super::Bsp;
-    use test::Bencher;
-
-    const MAP_BYTES: &[u8] = include_bytes!("../test.bsp");
-
-    #[bench]
-    fn from_bytes(b: &mut Bencher) {
-        use std::io::Cursor;
-
-        b.iter(|| {
-            Bsp::read(&mut Cursor::new(MAP_BYTES)).unwrap();
-        });
-    }
-
-    #[bench]
-    fn leaf_at(b: &mut Bencher) {
-        use std::io::Cursor;
-
-        let bsp = Bsp::read(&mut Cursor::new(MAP_BYTES)).unwrap();
-
-        b.iter(|| {
-            test::black_box(bsp.leaf_at(test::black_box([0., 0., 0.])));
-        });
     }
 }
