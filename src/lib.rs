@@ -1,43 +1,59 @@
+mod bspfile;
+mod reader;
+
+use crate::bspfile::LumpType;
 use arrayvec::ArrayString;
+use binread::io::{Cursor, SeekFrom};
+use binread::{BinRead, BinResult, ReadOptions};
 use bitflags::bitflags;
+use bspfile::BspFile;
 use bv::BitVec;
-use byteorder::{LittleEndian, ReadBytesExt};
 use itertools::{GroupBy, Itertools};
+use parse_display::Display;
+use reader::LumpReader;
+use std::ops::Index;
 use std::{
     borrow::Cow,
     convert::{TryFrom, TryInto},
     fmt,
-    io::{self, Error, ErrorKind, Read, Seek, SeekFrom, Take},
+    io::{self, Error, ErrorKind, Read},
     ops::Deref,
 };
+use thiserror::Error;
 
-trait ElementSize {
-    const SIZE: usize;
+#[derive(Debug, Error)]
+pub enum BspError {
+    #[error("unexpected magic numbers or version, is this a valve bsp?")]
+    UnexpectedHeader(Header),
+    #[error("bsp lump is out of bounds of the bsp file")]
+    LumpOutOfBounds(LumpEntry),
+    #[error("unexpected length of uncompressed lump, got {got} but expected {expected}")]
+    UnexpectedUncompressedLumpSize { got: u32, expected: u32 },
+    #[error("error while decompressing lump")]
+    LumpDecompressError(lzma_rs::error::Error),
+    #[error("malformed utf8 data")]
+    Utf8Error(#[from] std::string::FromUtf8Error),
+    #[error("Directory entry length isn't a multiple of element size")]
+    MalformedLump,
+    #[error("invalid surface flag in {0}")]
+    InvalidSurfaceFlag(Name),
+    #[error("invalid content flag in {0}")]
+    InvalidContentFlag(Name),
+    #[error("non null-terminated name")]
+    InvalidName,
+    #[error("unexpected eof while reading data")]
+    UnexpectedEOF,
+    #[error("extra data at the end of the lump")]
+    UnexpectedExtraData,
+    #[error("error while reading data: {0}")]
+    ReadError(#[from] std::io::Error),
+    #[error("error while reading data: {0}")]
+    BinReadError(#[from] binread::Error),
 }
 
-macro_rules! elsize {
-    ($(#[$($any:tt)*])* $v:vis struct $name:ident { $($v0:vis $fname:ident : $fty:ty,)* }) => {
-        impl ElementSize for $name {
-            const SIZE: usize = {
-                use std::mem;
+pub type BspResult<T> = Result<T, BspError>;
 
-                let mut a = 0;
-
-                $(
-                    a += mem::size_of::<$fty>();
-                )*
-
-                a
-            };
-        }
-
-        $(#[$($any)*])* $v struct $name {
-            $($v0 $fname : $fty,)*
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, BinRead)]
 #[repr(u32)]
 pub enum FaceType {
     Polygon = 1,
@@ -76,46 +92,57 @@ impl TryFrom<u32> for FaceType {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone)]
 struct Directories {
-    entities: DirEntry,
-    textures: DirEntry,
-    planes: DirEntry,
-    nodes: DirEntry,
-    leaves: DirEntry,
-    leaf_faces: DirEntry,
-    leaf_brushes: DirEntry,
-    models: DirEntry,
-    brushes: DirEntry,
-    brush_sides: DirEntry,
-    vertices: DirEntry,
-    mesh_verts: DirEntry,
-    effects: DirEntry,
-    faces: DirEntry,
-    lightmaps: DirEntry,
-    lightvols: DirEntry,
-    visdata: DirEntry,
+    entries: [LumpEntry; 64],
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+impl BinRead for Directories {
+    type Args = <LumpEntry as BinRead>::Args;
+
+    fn read_options<R: binread::io::Read + binread::io::Seek>(
+        reader: &mut R,
+        options: &ReadOptions,
+        args: Self::Args,
+    ) -> BinResult<Self> {
+        let mut entries = [LumpEntry::default(); 64];
+        for i in 0..64 {
+            entries[i] = LumpEntry::read_options(reader, options, args)?;
+        }
+
+        Ok(Directories { entries })
+    }
+}
+
+impl Index<LumpType> for Directories {
+    type Output = LumpEntry;
+
+    fn index(&self, index: LumpType) -> &Self::Output {
+        &self.entries[index as usize]
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, BinRead)]
+#[br(little)]
 pub struct Header {
-    pub i: u8,
+    pub v: u8,
     pub b: u8,
     pub s: u8,
     pub p: u8,
 }
 
-#[derive(Clone, Debug, Default)]
-struct DirEntry {
+#[derive(Clone, Copy, Debug, Default, BinRead)]
+#[br(little)]
+pub struct LumpEntry {
     offset: u32,
     length: u32,
+    version: u32,
+    ident: u32,
 }
 
-elsize! {
-    #[derive(Debug, Clone)]
-    pub struct LeafFace {
-        pub face: u32,
-    }
+#[derive(Debug, Clone, BinRead)]
+pub struct LeafFace {
+    pub face: u32,
 }
 
 #[derive(Clone)]
@@ -281,140 +308,203 @@ bitflags! {
     }
 }
 
+#[derive(Debug, Display, Clone)]
+pub struct Name(ArrayString<[u8; 64]>);
+
+impl BinRead for Name {
+    type Args = ();
+
+    fn read_options<R: binread::io::Read + binread::io::Seek>(
+        reader: &mut R,
+        options: &ReadOptions,
+        args: Self::Args,
+    ) -> BinResult<Self> {
+        use std::str;
+
+        let mut name_buf: [u8; 64] = [0; 64];
+
+        for i in 0..64 {
+            name_buf[i] = u8::read_options(reader, options, args)?;
+        }
+
+        let zero_pos =
+            name_buf
+                .iter()
+                .position(|c| *c == 0)
+                .ok_or_else(|| binread::Error::AssertFail {
+                    pos: reader.seek(SeekFrom::Current(0)).unwrap() as usize,
+                    message: "Name not null terminated".to_string(),
+                })?;
+        let name = &name_buf[..zero_pos];
+        Ok(Name(
+            ArrayString::from(
+                str::from_utf8(name).map_err(|err| Error::new(ErrorKind::InvalidData, err))?,
+            )
+            .expect(
+                "Programmer error: it should be impossible for the string to exceed the capacity",
+            ),
+        ))
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Texture {
-    pub name: ArrayString<[u8; 64]>,
+    pub name: Name,
     pub flags: SurfaceFlags,
     pub contents: ContentFlags,
 }
 
-impl ElementSize for Texture {
-    const SIZE: usize = std::mem::size_of::<u32>() * 2 + std::mem::size_of::<u8>() * 64;
-}
+impl BinRead for Texture {
+    type Args = ();
 
-elsize! {
-    #[derive(Debug, Clone)]
-    pub struct Plane {
-        pub normal: [f32; 3],
-        pub dist: f32,
+    fn read_options<R: binread::io::Read + binread::io::Seek>(
+        reader: &mut R,
+        options: &ReadOptions,
+        args: Self::Args,
+    ) -> BinResult<Self> {
+        let name = Name::read_options(reader, options, args)?;
+        let flags = SurfaceFlags::from_bits(u32::read_options(reader, options, args)?).ok_or_else(
+            || binread::Error::NoVariantMatch {
+                pos: reader.seek(SeekFrom::Current(0)).unwrap() as usize,
+            },
+        )?;
+        let contents = ContentFlags::from_bits(u32::read_options(reader, options, args)?)
+            .ok_or_else(|| binread::Error::NoVariantMatch {
+                pos: reader.seek(SeekFrom::Current(0)).unwrap() as usize,
+            })?;
+
+        Ok(Texture {
+            name,
+            flags,
+            contents,
+        })
     }
 }
 
-elsize! {
-    #[derive(Debug, Clone)]
-    pub struct Node {
-        pub plane: u32,
-        pub children: [i32; 2],
-        pub mins: [i32; 3],
-        pub maxs: [i32; 3],
-    }
+#[derive(Debug, Clone, BinRead)]
+pub struct Plane {
+    pub normal: [f32; 3],
+    pub dist: f32,
 }
 
-elsize! {
-    #[derive(Debug, Clone)]
-    pub struct Leaf {
-        pub cluster: i32,
-        pub area: u32,
-        pub mins: [i32; 3],
-        pub maxs: [i32; 3],
-        pub leaf_face: u32,
-        pub num_leaf_faces: u32,
-        pub leaf_brush: u32,
-        pub num_leaf_brushes: u32,
-    }
+#[derive(Debug, Clone, BinRead)]
+pub struct Node {
+    pub plane: u32,
+    pub children: [i32; 2],
+    pub mins: [i32; 3],
+    pub maxs: [i32; 3],
 }
 
-elsize! {
-    #[derive(Debug, Clone)]
-    pub struct LeafBrush {
-        pub brush: u32,
-    }
+#[derive(Debug, Clone, BinRead)]
+pub struct Leaf {
+    pub cluster: i32,
+    pub area: u32,
+    pub mins: [i32; 3],
+    pub maxs: [i32; 3],
+    pub leaf_face: u32,
+    pub num_leaf_faces: u32,
+    pub leaf_brush: u32,
+    pub num_leaf_brushes: u32,
 }
 
-elsize! {
-    #[derive(Debug, Clone)]
-    pub struct Model {
-        pub mins: [f32; 3],
-        pub maxs: [f32; 3],
-        pub face: u32,
-        pub num_faces: u32,
-        pub brush: u32,
-        pub num_brushes: u32,
-    }
+#[derive(Debug, Clone, BinRead)]
+pub struct LeafBrush {
+    pub brush: u32,
 }
 
-elsize! {
-    #[derive(Debug, Clone)]
-    pub struct Brush {
-        pub brush_side: u32,
-        pub num_brush_sides: u32,
-        pub texture: u32,
-    }
+#[derive(Debug, Clone, BinRead)]
+pub struct Model {
+    pub mins: [f32; 3],
+    pub maxs: [f32; 3],
+    pub face: u32,
+    pub num_faces: u32,
+    pub brush: u32,
+    pub num_brushes: u32,
 }
 
-elsize! {
-    #[derive(Debug, Clone)]
-    pub struct BrushSide {
-        pub plane: u32,
-        pub texture: u32,
-    }
+#[derive(Debug, Clone, BinRead)]
+pub struct Brush {
+    pub brush_side: u32,
+    pub num_brush_sides: u32,
+    pub texture: u32,
 }
 
-elsize! {
-    #[derive(Debug, Clone)]
-    pub struct Vertex {
-        pub position: [f32; 3],
-        pub surface_texcoord: [f32; 2],
-        pub lightmap_texcoord: [f32; 2],
-        pub normal: [f32; 3],
-        pub color: [u8; 4],
-    }
+#[derive(Debug, Clone, BinRead)]
+pub struct BrushSide {
+    pub plane: u32,
+    pub texture: u32,
 }
 
-elsize! {
-    #[derive(Debug, Clone)]
-    pub struct MeshVert {
-        pub offset: u32,
-    }
+#[derive(Debug, Clone, BinRead)]
+pub struct Vertex {
+    pub position: [f32; 3],
+    pub surface_texcoord: [f32; 2],
+    pub lightmap_texcoord: [f32; 2],
+    pub normal: [f32; 3],
+    pub color: [u8; 4],
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, BinRead)]
+pub struct MeshVert {
+    pub offset: u32,
+}
+
+#[derive(Debug, Clone, BinRead)]
 pub struct Effect {
-    pub name: ArrayString<[u8; 64]>,
+    pub name: Name,
     pub brush: u32,
     pub unknown: u32,
 }
 
-impl ElementSize for Effect {
-    const SIZE: usize = std::mem::size_of::<u32>() * 2 + std::mem::size_of::<u8>() * 64;
-}
-
-elsize! {
-    #[derive(Debug, Clone)]
-    pub struct Face {
-        pub texture: u32,
-        pub effect: u32,
-        pub face_type: FaceType,
-        pub vertex: u32,
-        pub num_vertexes: u32,
-        pub mesh_vert: u32,
-        pub num_mesh_verts: u32,
-        pub lm_index: u32,
-        pub lm_start: [u32; 2],
-        pub lm_size: [u32; 2],
-        pub lm_origin: [f32; 3],
-        pub lm_vecs: [[f32; 3]; 2],
-        pub normal: [f32; 3],
-        pub size: [u32; 2],
-    }
+#[derive(Debug, Clone, BinRead)]
+pub struct Face {
+    pub texture: u32,
+    pub effect: u32,
+    pub face_type: FaceType,
+    pub vertex: u32,
+    pub num_vertices: u32,
+    pub mesh_vert: u32,
+    pub num_mesh_verts: u32,
+    pub lm_index: u32,
+    pub lm_start: [u32; 2],
+    pub lm_size: [u32; 2],
+    pub lm_origin: [f32; 3],
+    pub lm_vecs: [[f32; 3]; 2],
+    pub normal: [f32; 3],
+    pub size: [u32; 2],
 }
 
 const LIGHTMAP_SIZE: usize = 128;
 
-elsize! {
-    #[derive(Clone)]
-    pub struct Lightmap {
-        map: [[[u8; 3]; LIGHTMAP_SIZE]; LIGHTMAP_SIZE],
+#[derive(Default, Clone, Copy, BinRead, Debug)]
+pub struct LightColor {
+    r: u8,
+    g: u8,
+    b: u8,
+}
+
+#[derive(Clone)]
+pub struct Lightmap {
+    map: [[LightColor; LIGHTMAP_SIZE]; LIGHTMAP_SIZE],
+}
+
+impl BinRead for Lightmap {
+    type Args = <LightColor as BinRead>::Args;
+
+    fn read_options<R: binread::io::Read + binread::io::Seek>(
+        reader: &mut R,
+        options: &ReadOptions,
+        args: Self::Args,
+    ) -> BinResult<Self> {
+        let mut map = [[LightColor::default(); LIGHTMAP_SIZE]; LIGHTMAP_SIZE];
+
+        for x in 0..LIGHTMAP_SIZE {
+            for y in 0..LIGHTMAP_SIZE {
+                map[x][y] = LightColor::read_options(reader, options, args)?;
+            }
+        }
+
+        Ok(Lightmap { map })
     }
 }
 
@@ -422,7 +512,7 @@ impl fmt::Debug for Lightmap {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         #[derive(Debug)]
         struct Lightmap {
-            map: Vec<Vec<[u8; 3]>>,
+            map: Vec<Vec<LightColor>>,
         }
 
         Lightmap {
@@ -432,488 +522,20 @@ impl fmt::Debug for Lightmap {
     }
 }
 
-elsize! {
-    #[derive(Debug, Clone)]
-    pub struct Lightvol {
-        ambient: [u8; 3],
-        directional: [u8; 3],
-        dir: [u8; 2],
-    }
+#[derive(Debug, Clone, BinRead)]
+pub struct Lightvol {
+    ambient: [u8; 3],
+    directional: [u8; 3],
+    dir: [u8; 2],
 }
 
 #[derive(Default, Debug, Clone)]
 pub struct VisData {
-    pub n_vecs: u32,      // Number of vectors.
-    pub sz_vecs: u32,     // Size of each vector, in bytes.
+    pub n_vecs: u32,
+    // Number of vectors.
+    pub sz_vecs: u32,
+    // Size of each vector, in bytes.
     pub vecs: BitVec<u8>, // Visibility data. One bit per cluster per vector.
-}
-
-struct BspReader<R> {
-    inner: R,
-}
-
-impl<R: Read + Seek> BspReader<R> {
-    fn read_entities(&mut self, dir_entry: &DirEntry) -> io::Result<Entities> {
-        let mut entities = Vec::with_capacity(dir_entry.length as usize);
-        self.inner.seek(SeekFrom::Start(dir_entry.offset as u64))?;
-        self.inner
-            .by_ref()
-            .take(dir_entry.length as u64)
-            .read_to_end(&mut entities)?;
-        let entities =
-            String::from_utf8(entities).map_err(|err| Error::new(ErrorKind::InvalidData, err))?;
-        Ok(Entities { entities })
-    }
-
-    fn read_entry<F, T>(&mut self, dir_entry: &DirEntry, mut f: F) -> io::Result<Vec<T>>
-    where
-        F: FnMut(&mut BspReader<Take<&mut R>>) -> io::Result<T>,
-        T: ElementSize,
-    {
-        if dir_entry.length % T::SIZE as u32 != 0 {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                format!("Directory entry length isn't a multiple of element size (length: {}, element size: {})", dir_entry.length, T::SIZE),
-            ));
-        }
-
-        let num_entries = dir_entry.length as usize / T::SIZE;
-        let mut entries = Vec::with_capacity(num_entries);
-        self.inner.seek(SeekFrom::Start(dir_entry.offset as u64))?;
-        let mut reader = BspReader {
-            inner: self.inner.by_ref().take(dir_entry.length as u64),
-        };
-
-        for _ in 0..num_entries {
-            entries.push(f(&mut reader)?);
-        }
-
-        Ok(entries)
-    }
-}
-
-impl<R: Read> BspReader<R> {
-    fn read_header(&mut self) -> io::Result<Header> {
-        let i = self.inner.read_u8()?;
-        let b = self.inner.read_u8()?;
-        let s = self.inner.read_u8()?;
-        let p = self.inner.read_u8()?;
-        Ok(Header { i, b, s, p })
-    }
-
-    fn read_version(&mut self) -> io::Result<u32> {
-        self.inner.read_u32::<LittleEndian>()
-    }
-
-    fn read_directories(&mut self) -> io::Result<Directories> {
-        macro_rules! read_dirs {
-            (@inner $out:expr,) => {
-                $out
-            };
-            (@inner $out:expr, $name:ident $(, $rest:ident)*) => {{
-                let mut out = $out;
-                out.$name = {
-                    let offset = self.inner.read_u32::<LittleEndian>()?;
-                    let length = self.inner.read_u32::<LittleEndian>()?;
-                    DirEntry {
-                        offset,
-                        length,
-                    }
-                };
-                read_dirs!(@inner out, $($rest),*)
-            }};
-            ($($any:tt)*) => {{
-                read_dirs!(@inner Directories::default(), $($any)*)
-            }}
-        }
-
-        Ok(read_dirs!(
-            entities,
-            textures,
-            planes,
-            nodes,
-            leaves,
-            leaf_faces,
-            leaf_brushes,
-            models,
-            brushes,
-            brush_sides,
-            vertices,
-            mesh_verts,
-            effects,
-            faces,
-            lightmaps,
-            lightvols,
-            visdata
-        ))
-    }
-
-    fn read_texture(&mut self) -> io::Result<Texture> {
-        let name = self.read_name()?;
-        let flags =
-            SurfaceFlags::from_bits(self.inner.read_u32::<LittleEndian>()?).ok_or_else(|| {
-                Error::new(
-                    ErrorKind::InvalidData,
-                    format!("Invalid surface flag in texture: {}", name),
-                )
-            })?;
-        let contents =
-            ContentFlags::from_bits(self.inner.read_u32::<LittleEndian>()?).ok_or_else(|| {
-                Error::new(
-                    ErrorKind::InvalidData,
-                    format!("Invalid content flag in texture: {}", name),
-                )
-            })?;
-        Ok(Texture {
-            name,
-            flags,
-            contents,
-        })
-    }
-
-    fn read_plane(&mut self) -> io::Result<Plane> {
-        let x = self.inner.read_f32::<LittleEndian>()?;
-        let y = self.inner.read_f32::<LittleEndian>()?;
-        let z = self.inner.read_f32::<LittleEndian>()?;
-        let dist = self.inner.read_f32::<LittleEndian>()?;
-        let plane = Plane {
-            normal: [x, y, z],
-            dist,
-        };
-        Ok(plane)
-    }
-
-    fn read_node(&mut self) -> io::Result<Node> {
-        let plane = self.inner.read_u32::<LittleEndian>()?;
-        let children = [
-            self.inner.read_i32::<LittleEndian>()?,
-            self.inner.read_i32::<LittleEndian>()?,
-        ];
-        let mins = [
-            self.inner.read_i32::<LittleEndian>()?,
-            self.inner.read_i32::<LittleEndian>()?,
-            self.inner.read_i32::<LittleEndian>()?,
-        ];
-        let maxs = [
-            self.inner.read_i32::<LittleEndian>()?,
-            self.inner.read_i32::<LittleEndian>()?,
-            self.inner.read_i32::<LittleEndian>()?,
-        ];
-        let node = Node {
-            plane,
-            children,
-            mins,
-            maxs,
-        };
-        Ok(node)
-    }
-
-    fn read_leaf(&mut self) -> io::Result<Leaf> {
-        let cluster = self.inner.read_i32::<LittleEndian>()?;
-        let area = self.inner.read_u32::<LittleEndian>()?;
-        let mins = [
-            self.inner.read_i32::<LittleEndian>()?,
-            self.inner.read_i32::<LittleEndian>()?,
-            self.inner.read_i32::<LittleEndian>()?,
-        ];
-        let maxs = [
-            self.inner.read_i32::<LittleEndian>()?,
-            self.inner.read_i32::<LittleEndian>()?,
-            self.inner.read_i32::<LittleEndian>()?,
-        ];
-        let leaf_face = self.inner.read_u32::<LittleEndian>()?;
-        let num_leaf_faces = self.inner.read_u32::<LittleEndian>()?;
-        let leaf_brush = self.inner.read_u32::<LittleEndian>()?;
-        let num_leaf_brushes = self.inner.read_u32::<LittleEndian>()?;
-        let leaf = Leaf {
-            cluster,
-            area,
-            mins,
-            maxs,
-            leaf_face,
-            num_leaf_faces,
-            leaf_brush,
-            num_leaf_brushes,
-        };
-        Ok(leaf)
-    }
-
-    fn read_leaf_face(&mut self) -> io::Result<LeafFace> {
-        let face = self.inner.read_u32::<LittleEndian>()?;
-        let leaf_face = LeafFace { face };
-        Ok(leaf_face)
-    }
-
-    fn read_leaf_brush(&mut self) -> io::Result<LeafBrush> {
-        let brush = self.inner.read_u32::<LittleEndian>()?;
-        let leaf_brush = LeafBrush { brush };
-        Ok(leaf_brush)
-    }
-
-    fn read_model(&mut self) -> io::Result<Model> {
-        let mins = [
-            self.inner.read_f32::<LittleEndian>()?,
-            self.inner.read_f32::<LittleEndian>()?,
-            self.inner.read_f32::<LittleEndian>()?,
-        ];
-        let maxs = [
-            self.inner.read_f32::<LittleEndian>()?,
-            self.inner.read_f32::<LittleEndian>()?,
-            self.inner.read_f32::<LittleEndian>()?,
-        ];
-        let face = self.inner.read_u32::<LittleEndian>()?;
-        let num_faces = self.inner.read_u32::<LittleEndian>()?;
-        let brush = self.inner.read_u32::<LittleEndian>()?;
-        let num_brushes = self.inner.read_u32::<LittleEndian>()?;
-        let model = Model {
-            mins,
-            maxs,
-            face,
-            num_faces,
-            brush,
-            num_brushes,
-        };
-        Ok(model)
-    }
-
-    fn read_brush(&mut self) -> io::Result<Brush> {
-        let brush_side = self.inner.read_u32::<LittleEndian>()?;
-        let num_brush_sides = self.inner.read_u32::<LittleEndian>()?;
-        let texture = self.inner.read_u32::<LittleEndian>()?;
-        let brush = Brush {
-            brush_side,
-            num_brush_sides,
-            texture,
-        };
-        Ok(brush)
-    }
-
-    fn read_brush_side(&mut self) -> io::Result<BrushSide> {
-        let plane = self.inner.read_u32::<LittleEndian>()?;
-        let texture = self.inner.read_u32::<LittleEndian>()?;
-        let brush_side = BrushSide { plane, texture };
-        Ok(brush_side)
-    }
-
-    fn read_vertex(&mut self) -> io::Result<Vertex> {
-        let position = [
-            self.inner.read_f32::<LittleEndian>()?,
-            self.inner.read_f32::<LittleEndian>()?,
-            self.inner.read_f32::<LittleEndian>()?,
-        ];
-        let surface_texcoord = [
-            self.inner.read_f32::<LittleEndian>()?,
-            self.inner.read_f32::<LittleEndian>()?,
-        ];
-        let lightmap_texcoord = [
-            self.inner.read_f32::<LittleEndian>()?,
-            self.inner.read_f32::<LittleEndian>()?,
-        ];
-        let normal = [
-            self.inner.read_f32::<LittleEndian>()?,
-            self.inner.read_f32::<LittleEndian>()?,
-            self.inner.read_f32::<LittleEndian>()?,
-        ];
-        let color = [
-            self.inner.read_u8()?,
-            self.inner.read_u8()?,
-            self.inner.read_u8()?,
-            self.inner.read_u8()?,
-        ];
-        let vertex = Vertex {
-            position,
-            surface_texcoord,
-            lightmap_texcoord,
-            normal,
-            color,
-        };
-        Ok(vertex)
-    }
-
-    fn read_mesh_vert(&mut self) -> io::Result<MeshVert> {
-        let offset = self.inner.read_u32::<LittleEndian>()?;
-        let mesh_vert = MeshVert { offset };
-        Ok(mesh_vert)
-    }
-
-    fn read_name(&mut self) -> io::Result<ArrayString<[u8; 64]>> {
-        use std::str;
-
-        let mut name_buf = [0u8; 64];
-        self.inner.read_exact(&mut name_buf)?;
-        let zero_pos = name_buf.iter().position(|c| *c == 0).ok_or_else(|| {
-            Error::new(
-                ErrorKind::InvalidData,
-                format!("Name isn't null-terminated"),
-            )
-        })?;
-        let name = &name_buf[..zero_pos];
-        Ok(ArrayString::from(
-            str::from_utf8(name).map_err(|err| Error::new(ErrorKind::InvalidData, err))?,
-        )
-        .expect("Programmer error: it should be impossible for the string to exceed the capacity"))
-    }
-
-    fn read_effect(&mut self) -> io::Result<Effect> {
-        let name = self.read_name()?;
-        let brush = self.inner.read_u32::<LittleEndian>()?;
-        let unknown = self.inner.read_u32::<LittleEndian>()?;
-        Ok(Effect {
-            name,
-            brush,
-            unknown,
-        })
-    }
-
-    fn read_face(&mut self) -> io::Result<Face> {
-        let texture = self.inner.read_u32::<LittleEndian>()?;
-        let effect = self.inner.read_u32::<LittleEndian>()?;
-        let face_type = self
-            .inner
-            .read_u32::<LittleEndian>()?
-            .try_into()
-            .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
-        let vertex = self.inner.read_u32::<LittleEndian>()?;
-        let num_vertexes = self.inner.read_u32::<LittleEndian>()?;
-        let mesh_vert = self.inner.read_u32::<LittleEndian>()?;
-        let num_mesh_verts = self.inner.read_u32::<LittleEndian>()?;
-        let lm_index = self.inner.read_u32::<LittleEndian>()?;
-        let lm_start = [
-            self.inner.read_u32::<LittleEndian>()?,
-            self.inner.read_u32::<LittleEndian>()?,
-        ];
-        let lm_size = [
-            self.inner.read_u32::<LittleEndian>()?,
-            self.inner.read_u32::<LittleEndian>()?,
-        ];
-        let lm_origin = [
-            self.inner.read_f32::<LittleEndian>()?,
-            self.inner.read_f32::<LittleEndian>()?,
-            self.inner.read_f32::<LittleEndian>()?,
-        ];
-        let lm_vec1 = [
-            self.inner.read_f32::<LittleEndian>()?,
-            self.inner.read_f32::<LittleEndian>()?,
-            self.inner.read_f32::<LittleEndian>()?,
-        ];
-        let lm_vec2 = [
-            self.inner.read_f32::<LittleEndian>()?,
-            self.inner.read_f32::<LittleEndian>()?,
-            self.inner.read_f32::<LittleEndian>()?,
-        ];
-        let lm_vecs = [lm_vec1, lm_vec2];
-        let normal = [
-            self.inner.read_f32::<LittleEndian>()?,
-            self.inner.read_f32::<LittleEndian>()?,
-            self.inner.read_f32::<LittleEndian>()?,
-        ];
-        let size = [
-            self.inner.read_u32::<LittleEndian>()?,
-            self.inner.read_u32::<LittleEndian>()?,
-        ];
-        let face = Face {
-            texture,
-            effect,
-            face_type,
-            vertex,
-            num_vertexes,
-            mesh_vert,
-            num_mesh_verts,
-            lm_index,
-            lm_start,
-            lm_size,
-            lm_origin,
-            lm_vecs,
-            normal,
-            size,
-        };
-        Ok(face)
-    }
-
-    fn read_lightmap(&mut self) -> io::Result<Lightmap> {
-        use std::ptr;
-
-        const NUM_BYTES: usize = LIGHTMAP_SIZE * LIGHTMAP_SIZE * 3;
-
-        let mut vec = Vec::with_capacity(NUM_BYTES);
-        self.inner
-            .by_ref()
-            .take(NUM_BYTES as u64)
-            .read_to_end(&mut vec)?;
-
-        if vec.len() != NUM_BYTES {
-            return Err(ErrorKind::UnexpectedEof.into());
-        }
-
-        let ptr = vec[..].as_ptr();
-
-        let ptr = ptr as *const [[[u8; 3]; LIGHTMAP_SIZE]; LIGHTMAP_SIZE];
-
-        Ok(Lightmap {
-            map: unsafe { ptr::read(ptr) },
-        })
-    }
-
-    fn read_lightvol(&mut self) -> io::Result<Lightvol> {
-        let ambient = [
-            self.inner.read_u8()?,
-            self.inner.read_u8()?,
-            self.inner.read_u8()?,
-        ];
-        let directional = [
-            self.inner.read_u8()?,
-            self.inner.read_u8()?,
-            self.inner.read_u8()?,
-        ];
-        let dir = [self.inner.read_u8()?, self.inner.read_u8()?];
-        Ok(Lightvol {
-            ambient,
-            directional,
-            dir,
-        })
-    }
-
-    fn read_visdata(&mut self, entry: &DirEntry) -> io::Result<VisData> {
-        if (entry.length as usize) < std::mem::size_of::<u32>() * 2 {
-            return Ok(VisData::default());
-        }
-
-        let n_vecs = self.inner.read_u32::<LittleEndian>()?;
-        let sz_vecs = self.inner.read_u32::<LittleEndian>()?;
-        let vecs_size = n_vecs as u64 * sz_vecs as u64;
-        let mut vecs = Vec::with_capacity(
-            vecs_size
-                .try_into()
-                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?,
-        );
-        self.inner
-            .by_ref()
-            .take(vecs_size as u64)
-            .read_to_end(&mut vecs)?;
-
-        if (vecs.len() as u64) < vecs_size {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                format!("Unexpected EOF while reading VisData"),
-            ));
-        }
-
-        if (vecs.len() as u64) > vecs_size {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                format!("Extra data at end of file"),
-            ));
-        }
-
-        let vecs = BitVec::from_bits(vecs);
-
-        let vis_data = VisData {
-            n_vecs,
-            sz_vecs,
-            vecs,
-        };
-        Ok(vis_data)
-    }
 }
 
 #[derive(Debug)]
@@ -1032,68 +654,55 @@ pub struct Bsp {
     pub brushes: Vec<Brush>,
     pub brush_sides: Vec<BrushSide>,
     pub vertices: Vec<Vertex>,
-    pub mesh_verts: Vec<MeshVert>,
-    pub effects: Vec<Effect>,
     pub faces: Vec<Face>,
-    pub lightmaps: Vec<Lightmap>,
-    pub lightvols: Vec<Lightvol>,
     pub vis_data: VisData,
 }
 
 impl Bsp {
-    pub fn read<R: Read + Seek>(reader: R) -> io::Result<Self> {
-        const EXPECTED_HEADER: Header = Header {
-            i: b'I',
-            b: b'B',
-            s: b'S',
-            p: b'P',
-        };
-        // TODO: Use this to decide on the version to parse it as
-        const EXPECTED_VERSION: u32 = 0x2e;
+    pub fn read(data: &[u8]) -> BspResult<Self> {
+        let bsp_file = BspFile::new(data)?;
+        let dir_entries = bsp_file.directories();
 
-        let mut reader = BspReader { inner: reader };
-        let header = reader.read_header()?;
-        let version = reader.read_version()?;
-
-        if header != EXPECTED_HEADER || version != EXPECTED_VERSION {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                format!(
-                    "Invalid header or version (expected {:?}, got {:?})",
-                    (EXPECTED_HEADER, EXPECTED_VERSION),
-                    (header, version)
-                ),
-            ));
-        }
-
-        let dir_entries = reader.read_directories()?;
-        let entities = reader.read_entities(&dir_entries.entities)?;
-        let textures = reader.read_entry(&dir_entries.textures, |r| r.read_texture())?;
-        let planes = reader.read_entry(&dir_entries.planes, |r| r.read_plane())?;
-        let nodes = reader.read_entry(&dir_entries.nodes, |r| r.read_node())?;
-        let leaves = reader
-            .read_entry(&dir_entries.leaves, |r| r.read_leaf())?
+        let entities = bsp_file.lump_reader(LumpType::Entities)?.read_entities()?;
+        let textures = bsp_file
+            .lump_reader(LumpType::TextureData)?
+            .read_vec(|r| r.read())?;
+        let planes = bsp_file
+            .lump_reader(LumpType::Planes)?
+            .read_vec(|r| r.read())?;
+        let nodes = bsp_file
+            .lump_reader(LumpType::Nodes)?
+            .read_vec(|r| r.read())?;
+        let leaves = bsp_file
+            .lump_reader(LumpType::Leaves)?
+            .read_vec(|r| r.read())?
             .into();
-        let leaf_faces = reader.read_entry(&dir_entries.leaf_faces, |r| r.read_leaf_face())?;
-        let leaf_brushes = reader.read_entry(&dir_entries.leaf_brushes, |r| r.read_leaf_brush())?;
-        let models = reader.read_entry(&dir_entries.models, |r| r.read_model())?;
-        let brushes = reader.read_entry(&dir_entries.brushes, |r| r.read_brush())?;
-        let brush_sides = reader.read_entry(&dir_entries.brush_sides, |r| r.read_brush_side())?;
-        let vertices = reader.read_entry(&dir_entries.vertices, |r| r.read_vertex())?;
-        let mesh_verts = reader.read_entry(&dir_entries.mesh_verts, |r| r.read_mesh_vert())?;
-        let effects = reader.read_entry(&dir_entries.effects, |r| r.read_effect())?;
-        let faces = reader.read_entry(&dir_entries.faces, |r| r.read_face())?;
-        let lightmaps = reader.read_entry(&dir_entries.lightmaps, |r| r.read_lightmap())?;
-        let lightvols = reader.read_entry(&dir_entries.lightvols, |r| r.read_lightvol())?;
-
-        reader
-            .inner
-            .seek(SeekFrom::Start(dir_entries.visdata.offset as u64))?;
-        let vis_data = reader.read_visdata(&dir_entries.visdata)?;
+        let leaf_faces = bsp_file
+            .lump_reader(LumpType::LeafFaces)?
+            .read_vec(|r| r.read())?;
+        let leaf_brushes = bsp_file
+            .lump_reader(LumpType::LeafBrushes)?
+            .read_vec(|r| r.read())?;
+        let models = bsp_file
+            .lump_reader(LumpType::Models)?
+            .read_vec(|r| r.read())?;
+        let brushes = bsp_file
+            .lump_reader(LumpType::Brushes)?
+            .read_vec(|r| r.read())?;
+        let brush_sides = bsp_file
+            .lump_reader(LumpType::BrushSides)?
+            .read_vec(|r| r.read())?;
+        let vertices = bsp_file
+            .lump_reader(LumpType::Vertices)?
+            .read_vec(|r| r.read())?;
+        let faces = bsp_file
+            .lump_reader(LumpType::Faces)?
+            .read_vec(|r| r.read())?;
+        let vis_data = bsp_file.lump_reader(LumpType::Visibility)?.read_visdata()?;
 
         Ok({
             Bsp {
-                header,
+                header: bsp_file.header().clone(),
                 entities,
                 textures,
                 planes,
@@ -1105,11 +714,7 @@ impl Bsp {
                 brushes,
                 brush_sides,
                 vertices,
-                mesh_verts,
-                effects,
                 faces,
-                lightmaps,
-                lightvols,
                 vis_data,
             }
         })
@@ -1203,24 +808,25 @@ impl<'a> Handle<'a, Face> {
     }
 
     pub fn vertices(&self) -> impl Iterator<Item = Cow<'a, Vertex>> {
-        use itertools::Either;
+        todo!();
+        vec![].into_iter()
 
-        match self.face_type {
-            FaceType::Polygon | FaceType::Mesh => {
-                let start = self.mesh_vert as usize;
-                let end = start + self.num_mesh_verts as usize;
-                let bsp = self.bsp;
-                let vertex = self.vertex;
-
-                Either::Left(
-                    bsp.mesh_verts[start..end]
-                        .iter()
-                        .map(move |mv| Cow::Borrowed(&bsp.vertices[(mv.offset + vertex) as usize])),
-                )
-            }
-            // TODO
-            _ => Either::Right(std::iter::empty()),
-        }
+        // match self.face_type {
+        //     FaceType::Polygon | FaceType::Mesh => {
+        //         let start = self.mesh_vert as usize;
+        //         let end = start + self.num_mesh_verts as usize;
+        //         let bsp = self.bsp;
+        //         let vertex = self.vertex;
+        //
+        //         Either::Left(
+        //             bsp.mesh_verts[start..end]
+        //                 .iter()
+        //                 .map(move |mv| Cow::Borrowed(&bsp.vertices[(mv.offset + vertex) as usize])),
+        //         )
+        //     }
+        //     // TODO
+        //     _ => Either::Right(std::iter::empty()),
+        // }
     }
 }
 
@@ -1271,11 +877,12 @@ impl<'a> Handle<'a, Leaf> {
 #[cfg(test)]
 mod tests {
     use super::Bsp;
-
     #[test]
-    fn random_file() {
-        use std::fs::File;
+    fn tf2_file() {
+        use std::fs::read;
 
-        Bsp::read(&mut File::open("test.bsp").expect("Cannot open file")).unwrap();
+        let data = read("koth_bagel_rc2a.bsp").unwrap();
+
+        Bsp::read(&data).unwrap();
     }
 }
