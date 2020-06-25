@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+#![allow(unreachable_code)]
+
 mod bspfile;
 mod reader;
 
@@ -93,7 +96,7 @@ impl TryFrom<u32> for FaceType {
 }
 
 #[derive(Clone)]
-struct Directories {
+pub struct Directories {
     entries: [LumpEntry; 64],
 }
 
@@ -661,7 +664,6 @@ pub struct Bsp {
 impl Bsp {
     pub fn read(data: &[u8]) -> BspResult<Self> {
         let bsp_file = BspFile::new(data)?;
-        let dir_entries = bsp_file.directories();
 
         let entities = bsp_file.lump_reader(LumpType::Entities)?.read_entities()?;
         let textures = bsp_file
