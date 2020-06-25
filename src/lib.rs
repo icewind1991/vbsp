@@ -16,10 +16,11 @@ use parse_display::Display;
 use reader::LumpReader;
 use std::ops::Index;
 use std::{
-    borrow::Cow,
     convert::{TryFrom, TryInto},
     fmt,
     io::{self, Error, ErrorKind, Read},
+    iter::once,
+    mem::size_of,
     ops::Deref,
 };
 use thiserror::Error;
@@ -240,74 +241,24 @@ impl<'a> Entity<'a> {
 }
 
 bitflags! {
-    pub struct SurfaceFlags: u32 {
-        const NODAMAGE    = 0b0000_0000_0000_0000_0001; // Never give falling damage
-        const SLICK       = 0b0000_0000_0000_0000_0010; // Affects game physics
-        const SKY         = 0b0000_0000_0000_0000_0100; // Lighting from environment map
-        const LADDER      = 0b0000_0000_0000_0000_1000; // Climbable ladder
-        const NOIMPACT    = 0b0000_0000_0000_0001_0000; // Don't make missile explosions
-        const NOMARKS     = 0b0000_0000_0000_0010_0000; // Don't leave missile marks
-        const FLESH       = 0b0000_0000_0000_0100_0000; // Make flesh sounds and effects
-        const NODRAW      = 0b0000_0000_0000_1000_0000; // Don't generate a drawsurface at all
-        const HINT        = 0b0000_0000_0001_0000_0000; // Make a primary bsp splitter
-        const SKIP        = 0b0000_0000_0010_0000_0000; // Completely ignore, allowing non-closed brushes
-        const NOLIGHTMAP  = 0b0000_0000_0100_0000_0000; // Surface doesn't need a lightmap
-        const POINTLIGHT  = 0b0000_0000_1000_0000_0000; // Generate lighting info at vertices
-        const METALSTEPS  = 0b0000_0001_0000_0000_0000; // Clanking footsteps
-        const NOSTEPS     = 0b0000_0010_0000_0000_0000; // No footstep sounds
-        const NONSOLID    = 0b0000_0100_0000_0000_0000; // Don't collide against curves with this set
-        const LIGHTFILTER = 0b0000_1000_0000_0000_0000; // Act as a light filter during q3map -light
-        const ALPHASHADOW = 0b0001_0000_0000_0000_0000; // Do per-pixel light shadow casting in q3map
-        const NODLIGHT    = 0b0010_0000_0000_0000_0000; // Never add dynamic lights
-    }
-}
-
-impl SurfaceFlags {
-    pub fn should_draw(&self) -> bool {
-        !self.intersects(Self::HINT | Self::SKIP | Self::NODRAW | Self::LIGHTFILTER)
-    }
-}
-
-bitflags! {
-    pub struct ContentFlags: u32 {
-        // An eye is never valid in a solid
-        const SOLID          = 0b0000_0000_0000_0000_0000_0000_0000_0001;
-        const LAVA           = 0b0000_0000_0000_0000_0000_0000_0000_1000;
-        const SLIME          = 0b0000_0000_0000_0000_0000_0000_0001_0000;
-        const WATER          = 0b0000_0000_0000_0000_0000_0000_0010_0000;
-        const FOG            = 0b0000_0000_0000_0000_0000_0000_0100_0000;
-        const NOTTEAM1       = 0b0000_0000_0000_0000_0000_0000_1000_0000;
-        const NOTTEAM2       = 0b0000_0000_0000_0000_0000_0001_0000_0000;
-        const NOBOTCLIP      = 0b0000_0000_0000_0000_0000_0010_0000_0000;
-
-        const AREAPORTAL     = 0b0000_0000_0000_0000_1000_0000_0000_0000;
-
-        const PLAYERCLIP     = 0b0000_0000_0000_0001_0000_0000_0000_0000;
-        const MONSTERCLIP    = 0b0000_0000_0000_0010_0000_0000_0000_0000;
-
-        // Bot-specific contents types
-        const TELEPORTER     = 0b0000_0000_0000_0100_0000_0000_0000_0000;
-        const JUMPPAD        = 0b0000_0000_0000_1000_0000_0000_0000_0000;
-        const CLUSTERPORTAL  = 0b0000_0000_0001_0000_0000_0000_0000_0000;
-        const DONOTENTER     = 0b0000_0000_0010_0000_0000_0000_0000_0000;
-        const BOTCLIP        = 0b0000_0000_0100_0000_0000_0000_0000_0000;
-        const MOVER          = 0b0000_0000_1000_0000_0000_0000_0000_0000;
-
-        // Removed before bsping an entity
-        const ORIGIN         = 0b0000_0001_0000_0000_0000_0000_0000_0000;
-
-        // Should never be on a brush, only in game
-        const BODY           = 0b0000_0010_0000_0000_0000_0000_0000_0000;
-        const CORPSE         = 0b0000_0100_0000_0000_0000_0000_0000_0000;
-        // Brushes not used for the bsp
-        const DETAIL         = 0b0000_1000_0000_0000_0000_0000_0000_0000;
-        // Brushes used for the bsp
-        const STRUCTURAL     = 0b0001_0000_0000_0000_0000_0000_0000_0000;
-        // Don't consume surface fragments inside
-        const TRANSLUCENT    = 0b0010_0000_0000_0000_0000_0000_0000_0000;
-        const TRIGGER        = 0b0100_0000_0000_0000_0000_0000_0000_0000;
-        // Don't leave bodies or items (death fog, lava)
-        const NODROP         = 0b1000_0000_0000_0000_0000_0000_0000_0000;
+    #[derive(BinRead)]
+    pub struct TextureFlags: u32 {
+        const LIGHT      = 0b0000_0000_0000_0000_0001; // value will hold the light strength
+        const SKY2D      = 0b0000_0000_0000_0000_0010; // don't draw, indicate we should skylight + draw 2d sky but don't draw the 3d skybox
+        const SKY        = 0b0000_0000_0000_0000_0100; // don't draw, but add the skybox
+        const WARP       = 0b0000_0000_0000_0000_1000; // turbulent water warp
+        const TRANS      = 0b0000_0000_0000_0001_0000; // texture is translucent
+        const NOPORTAL   = 0b0000_0000_0000_0010_0000; // the surface can't have a portal placed on it
+        const TRIGGER    = 0b0000_0000_0000_0100_0000; // xbox hack to work around elimination of trigger surfaces
+        const NODRAW     = 0b0000_0000_0000_1000_0000; // don't bother referencing the texture
+        const HINT       = 0b0000_0000_0001_0000_0000; // make a primary bsp splitter
+        const SKIP       = 0b0000_0000_0010_0000_0000; // completely ignore, allowing non-closed brushes
+        const NOLIGHT    = 0b0000_0000_0100_0000_0000; // dont calculate light
+        const BUMPLIGHT  = 0b0000_0000_1000_0000_0000; // calculate thee light maps for the surface for bump mapping
+        const NOSHADOWS  = 0b0000_0001_0000_0000_0000; // don't receive shadows
+        const NODECALS   = 0b0000_0010_0000_0000_0000; // don't receive decals
+        const NOCHOP     = 0b0000_0100_0000_0000_0000; // don't subdivide patches on this surface
+        const HITBOX     = 0b0000_1000_0000_0000_0000; // surface is part of a hitbox
     }
 }
 
@@ -350,44 +301,40 @@ impl BinRead for Name {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Texture {
-    pub name: Name,
-    pub flags: SurfaceFlags,
-    pub contents: ContentFlags,
+#[derive(Debug, Clone, BinRead)]
+pub struct Vector {
+    x: f32,
+    y: f32,
+    z: f32,
 }
 
-impl BinRead for Texture {
-    type Args = ();
+#[derive(Debug, Clone, BinRead)]
+pub struct TextureInfo {
+    pub texture_scale: [f32; 4],
+    pub texture_transform: [f32; 4],
+    pub light_map_scale: [f32; 4],
+    pub light_map_transform: [f32; 4],
+    pub flags: TextureFlags,
+    pub texture_data_index: i32,
+}
 
-    fn read_options<R: binread::io::Read + binread::io::Seek>(
-        reader: &mut R,
-        options: &ReadOptions,
-        args: Self::Args,
-    ) -> BinResult<Self> {
-        let name = Name::read_options(reader, options, args)?;
-        let flags = SurfaceFlags::from_bits(u32::read_options(reader, options, args)?).ok_or_else(
-            || binread::Error::NoVariantMatch {
-                pos: reader.seek(SeekFrom::Current(0)).unwrap() as usize,
-            },
-        )?;
-        let contents = ContentFlags::from_bits(u32::read_options(reader, options, args)?)
-            .ok_or_else(|| binread::Error::NoVariantMatch {
-                pos: reader.seek(SeekFrom::Current(0)).unwrap() as usize,
-            })?;
+static_assertions::const_assert_eq!(size_of::<TextureInfo>(), 72);
 
-        Ok(Texture {
-            name,
-            flags,
-            contents,
-        })
-    }
+#[derive(Debug, Clone, BinRead)]
+pub struct TextureData {
+    pub reflectivity: Vector,
+    pub name_string_table_id: i32,
+    pub width: i32,
+    pub height: i32,
+    pub view_width: i32,
+    pub view_height: i32,
 }
 
 #[derive(Debug, Clone, BinRead)]
 pub struct Plane {
-    pub normal: [f32; 3],
+    pub normal: Vector,
     pub dist: f32,
+    pub ty: i32,
 }
 
 #[derive(Debug, Clone, BinRead)]
@@ -440,11 +387,37 @@ pub struct BrushSide {
 
 #[derive(Debug, Clone, BinRead)]
 pub struct Vertex {
-    pub position: [f32; 3],
-    pub surface_texcoord: [f32; 2],
-    pub lightmap_texcoord: [f32; 2],
-    pub normal: [f32; 3],
-    pub color: [u8; 4],
+    pub position: Vector,
+}
+
+#[derive(Debug, Clone, BinRead)]
+pub struct Edge {
+    pub start_index: u16,
+    pub end_index: u16,
+}
+
+pub enum EdgeDirection {
+    FirstToLast,
+    LastToFirst,
+}
+
+#[derive(Debug, Clone, BinRead)]
+pub struct SurfaceEdge {
+    edge: i32,
+}
+
+impl SurfaceEdge {
+    pub fn edge_index(&self) -> usize {
+        self.edge.abs() as usize
+    }
+
+    pub fn direction(&self) -> EdgeDirection {
+        if self.edge >= 0 {
+            EdgeDirection::FirstToLast
+        } else {
+            EdgeDirection::LastToFirst
+        }
+    }
 }
 
 #[derive(Debug, Clone, BinRead)]
@@ -461,21 +434,26 @@ pub struct Effect {
 
 #[derive(Debug, Clone, BinRead)]
 pub struct Face {
-    pub texture: u32,
-    pub effect: u32,
-    pub face_type: FaceType,
-    pub vertex: u32,
-    pub num_vertices: u32,
-    pub mesh_vert: u32,
-    pub num_mesh_verts: u32,
-    pub lm_index: u32,
-    pub lm_start: [u32; 2],
-    pub lm_size: [u32; 2],
-    pub lm_origin: [f32; 3],
-    pub lm_vecs: [[f32; 3]; 2],
-    pub normal: [f32; 3],
-    pub size: [u32; 2],
+    pub plane_num: u16,
+    pub side: u8,
+    pub on_node: u8,
+    pub first_edge: i32,
+    pub num_edges: i16,
+    pub texture_info: i16,
+    pub displacement_info: i16,
+    pub surface_fog_volume_id: i16,
+    pub styles: [u8; 4],
+    pub light_offset: i32,
+    pub area: f32,
+    pub light_map_texture_min: [i32; 2],
+    pub light_map_texture_size: [i32; 2],
+    pub original_face: i32,
+    pub primitive_count: u16,
+    pub first_primitive_index: u16,
+    pub smoothing_groups: u32,
 }
+
+static_assertions::const_assert_eq!(size_of::<Face>(), 56);
 
 const LIGHTMAP_SIZE: usize = 128;
 
@@ -647,7 +625,8 @@ impl<'a> IntoIterator for &'a mut Leaves {
 pub struct Bsp {
     pub header: Header,
     pub entities: Entities,
-    pub textures: Vec<Texture>,
+    pub textures_data: Vec<TextureData>,
+    pub textures_info: Vec<TextureInfo>,
     pub planes: Vec<Plane>,
     pub nodes: Vec<Node>,
     pub leaves: Leaves,
@@ -657,6 +636,8 @@ pub struct Bsp {
     pub brushes: Vec<Brush>,
     pub brush_sides: Vec<BrushSide>,
     pub vertices: Vec<Vertex>,
+    pub edges: Vec<Edge>,
+    pub surface_edges: Vec<SurfaceEdge>,
     pub faces: Vec<Face>,
     pub vis_data: VisData,
 }
@@ -666,8 +647,11 @@ impl Bsp {
         let bsp_file = BspFile::new(data)?;
 
         let entities = bsp_file.lump_reader(LumpType::Entities)?.read_entities()?;
-        let textures = bsp_file
+        let textures_data = bsp_file
             .lump_reader(LumpType::TextureData)?
+            .read_vec(|r| r.read())?;
+        let textures_info = bsp_file
+            .lump_reader(LumpType::TextureInfo)?
             .read_vec(|r| r.read())?;
         let planes = bsp_file
             .lump_reader(LumpType::Planes)?
@@ -697,6 +681,12 @@ impl Bsp {
         let vertices = bsp_file
             .lump_reader(LumpType::Vertices)?
             .read_vec(|r| r.read())?;
+        let edges = bsp_file
+            .lump_reader(LumpType::Edges)?
+            .read_vec(|r| r.read())?;
+        let surface_edges = bsp_file
+            .lump_reader(LumpType::SurfaceEdges)?
+            .read_vec(|r| r.read())?;
         let faces = bsp_file
             .lump_reader(LumpType::Faces)?
             .read_vec(|r| r.read())?;
@@ -706,7 +696,8 @@ impl Bsp {
             Bsp {
                 header: bsp_file.header().clone(),
                 entities,
-                textures,
+                textures_data,
+                textures_info,
                 planes,
                 nodes,
                 leaves,
@@ -716,6 +707,8 @@ impl Bsp {
                 brushes,
                 brush_sides,
                 vertices,
+                edges,
+                surface_edges,
                 faces,
                 vis_data,
             }
@@ -743,10 +736,6 @@ impl Bsp {
         })
     }
 
-    pub fn texture(&self, n: usize) -> Option<&Texture> {
-        self.textures.get(n)
-    }
-
     pub fn node(&self, n: usize) -> Option<Handle<'_, Node>> {
         self.nodes.get(n).map(|node| Handle {
             bsp: self,
@@ -764,25 +753,26 @@ impl Bsp {
 
     pub fn leaf_at(&self, point: [f32; 3]) -> Option<Handle<'_, Leaf>> {
         let mut current = self.root_node()?;
+        None
 
-        loop {
-            let plane = current.plane()?;
-            let dot: f32 = point
-                .iter()
-                .zip(plane.normal.iter())
-                .map(|(a, b)| a * b)
-                .sum();
-
-            let [front, back] = current.children;
-
-            let next = if dot < plane.dist { back } else { front };
-
-            if next < 0 {
-                return self.leaf((!next) as usize);
-            } else {
-                current = self.node(next as usize)?;
-            }
-        }
+        // loop {
+        //     let plane = current.plane()?;
+        //     let dot: f32 = point
+        //         .iter()
+        //         .zip(plane.normal.iter())
+        //         .map(|(a, b)| a * b)
+        //         .sum();
+        //
+        //     let [front, back] = current.children;
+        //
+        //     let next = if dot < plane.dist { back } else { front };
+        //
+        //     if next < 0 {
+        //         return self.leaf((!next) as usize);
+        //     } else {
+        //         current = self.node(next as usize)?;
+        //     }
+        // }
     }
 }
 
@@ -804,31 +794,39 @@ impl<'a> Handle<'a, Model> {
     }
 }
 
+impl<'a> Handle<'a, TextureInfo> {
+    pub fn texture(&self) -> Option<&TextureData> {
+        self.bsp
+            .textures_data
+            .get(self.data.texture_data_index as usize)
+    }
+}
+
 impl<'a> Handle<'a, Face> {
-    pub fn texture(&self) -> Option<&Texture> {
-        self.bsp.texture(self.texture as _)
+    pub fn texture(&self) -> Option<Handle<TextureInfo>> {
+        self.bsp
+            .textures_info
+            .get(self.texture_info as usize)
+            .map(|texture_info| Handle {
+                bsp: self.bsp,
+                data: texture_info,
+            })
     }
 
-    pub fn vertices(&self) -> impl Iterator<Item = Cow<'a, Vertex>> {
-        todo!();
-        vec![].into_iter()
-
-        // match self.face_type {
-        //     FaceType::Polygon | FaceType::Mesh => {
-        //         let start = self.mesh_vert as usize;
-        //         let end = start + self.num_mesh_verts as usize;
-        //         let bsp = self.bsp;
-        //         let vertex = self.vertex;
-        //
-        //         Either::Left(
-        //             bsp.mesh_verts[start..end]
-        //                 .iter()
-        //                 .map(move |mv| Cow::Borrowed(&bsp.vertices[(mv.offset + vertex) as usize])),
-        //         )
-        //     }
-        //     // TODO
-        //     _ => Either::Right(std::iter::empty()),
-        // }
+    pub fn vertices(&'a self) -> impl Iterator<Item = &'a Vertex> + 'a {
+        (self.data.first_edge..(self.data.first_edge + self.data.num_edges as i32))
+            .flat_map(move |surface_edge| self.bsp.surface_edges.get(surface_edge as usize))
+            .flat_map(move |surface_edge| {
+                self.bsp
+                    .edges
+                    .get(surface_edge.edge_index())
+                    .map(|edge| (edge, surface_edge.direction()))
+            })
+            .flat_map(|(edge, direction)| match direction {
+                EdgeDirection::FirstToLast => once(edge.start_index).chain(once(edge.end_index)),
+                EdgeDirection::LastToFirst => once(edge.end_index).chain(once(edge.start_index)),
+            })
+            .flat_map(move |vert_index| self.bsp.vertices.get(vert_index as usize))
     }
 }
 
@@ -879,6 +877,7 @@ impl<'a> Handle<'a, Leaf> {
 #[cfg(test)]
 mod tests {
     use super::Bsp;
+
     #[test]
     fn tf2_file() {
         use std::fs::read;
