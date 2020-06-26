@@ -49,7 +49,6 @@ impl<'a> BspFile<'a> {
 
     fn get_lump(&self, lump: LumpType) -> BspResult<Cow<[u8]>> {
         let lump = &self.directories[lump];
-        dbg!(lump);
         let raw_data = self
             .data
             .get(lump.offset as usize..lump.offset as usize + lump.length as usize)
