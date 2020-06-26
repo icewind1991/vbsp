@@ -38,10 +38,6 @@ impl<'a> BspFile<'a> {
         })
     }
 
-    pub fn directories(&self) -> &Directories {
-        &self.directories
-    }
-
     pub fn header(&self) -> &Header {
         &self.header
     }
@@ -92,6 +88,7 @@ impl<'a> BspFile<'a> {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum LumpType {
     Entities,

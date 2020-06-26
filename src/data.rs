@@ -379,8 +379,6 @@ pub struct Face {
 
 static_assertions::const_assert_eq!(size_of::<Face>(), 56);
 
-const LIGHTMAP_SIZE: usize = 128;
-
 #[derive(Default, Clone, Copy, BinRead, Debug)]
 pub struct LightColor {
     r: u8,

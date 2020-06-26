@@ -1,6 +1,3 @@
-#![allow(dead_code)]
-#![allow(unreachable_code)]
-
 mod bspfile;
 mod data;
 mod reader;
