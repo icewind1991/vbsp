@@ -7,6 +7,7 @@ use bv::BitVec;
 use parse_display::Display;
 use std::fmt;
 use std::io::{Error, ErrorKind};
+use std::iter::once;
 use std::mem::size_of;
 use std::ops::Index;
 
@@ -222,6 +223,12 @@ pub struct Vector {
     z: f32,
 }
 
+impl Vector {
+    pub fn iter(&self) -> impl Iterator<Item = f32> {
+        once(self.x).chain(once(self.y)).chain(once(self.z))
+    }
+}
+
 #[derive(Debug, Clone, BinRead)]
 pub struct TextureInfo {
     pub texture_scale: [f32; 4],
@@ -253,23 +260,33 @@ pub struct Plane {
 
 #[derive(Debug, Clone, BinRead)]
 pub struct Node {
-    pub plane: u32,
+    pub plane_index: i32,
     pub children: [i32; 2],
-    pub mins: [i32; 3],
-    pub maxs: [i32; 3],
+    pub mins: [i16; 3],
+    pub maxs: [i16; 3],
+    pub first_face: u16,
+    pub face_cound: u16,
+    pub area: i16,
+    pub padding: i16,
 }
+
+static_assertions::const_assert_eq!(size_of::<Node>(), 32);
 
 #[derive(Debug, Clone, BinRead)]
 pub struct Leaf {
-    pub cluster: i32,
-    pub area: u32,
-    pub mins: [i32; 3],
-    pub maxs: [i32; 3],
-    pub leaf_face: u32,
-    pub num_leaf_faces: u32,
-    pub leaf_brush: u32,
-    pub num_leaf_brushes: u32,
+    pub contents: i32,
+    pub cluster: i16,
+    pub area_and_flags: i16, // first 9 bits is area, last 7 bits is flags
+    pub mins: [i16; 3],
+    pub maxs: [i16; 3],
+    pub first_leaf_face: u16,
+    pub leaf_face_count: u16,
+    pub first_leaf_brush: u16,
+    pub leaf_brush_count: u16,
+    pub leaf_watter_data_id: i16,
 }
+
+static_assertions::const_assert_eq!(size_of::<Leaf>(), 32);
 
 #[derive(Debug, Clone, BinRead)]
 pub struct LeafBrush {

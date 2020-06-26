@@ -107,7 +107,7 @@ impl Leaves {
     //       to explicitly specify the type.
     pub fn clusters<'this>(
         &'this self,
-    ) -> GroupBy<i32, impl Iterator<Item = &'this Leaf>, impl FnMut(&&'this Leaf) -> i32> {
+    ) -> GroupBy<i16, impl Iterator<Item = &'this Leaf>, impl FnMut(&&'this Leaf) -> i16> {
         self.leaves.iter().group_by(|leaf: &&Leaf| leaf.cluster)
     }
 }
@@ -284,28 +284,27 @@ impl Bsp {
         self.models.iter().map(move |m| Handle::new(self, m))
     }
 
-    pub fn leaf_at(&self, point: [f32; 3]) -> Option<Handle<'_, Leaf>> {
+    pub fn leaf_at(&self, point: Vector) -> Option<Handle<'_, Leaf>> {
         let mut current = self.root_node()?;
-        None
 
-        // loop {
-        //     let plane = current.plane()?;
-        //     let dot: f32 = point
-        //         .iter()
-        //         .zip(plane.normal.iter())
-        //         .map(|(a, b)| a * b)
-        //         .sum();
-        //
-        //     let [front, back] = current.children;
-        //
-        //     let next = if dot < plane.dist { back } else { front };
-        //
-        //     if next < 0 {
-        //         return self.leaf((!next) as usize);
-        //     } else {
-        //         current = self.node(next as usize)?;
-        //     }
-        // }
+        loop {
+            let plane = current.plane()?;
+            let dot: f32 = point
+                .iter()
+                .zip(plane.normal.iter())
+                .map(|(a, b)| a * b)
+                .sum();
+
+            let [front, back] = current.children;
+
+            let next = if dot < plane.dist { back } else { front };
+
+            if next < 0 {
+                return self.leaf((!next) as usize);
+            } else {
+                current = self.node(next as usize)?;
+            }
+        }
     }
 }
 
@@ -365,7 +364,7 @@ impl<'a> Handle<'a, Face> {
 
 impl Handle<'_, Node> {
     pub fn plane(&self) -> Option<Handle<'_, Plane>> {
-        self.bsp.plane(self.plane as _)
+        self.bsp.plane(self.plane_index as _)
     }
 }
 
@@ -398,8 +397,8 @@ impl<'a> Handle<'a, Leaf> {
     }
 
     pub fn faces(&self) -> impl Iterator<Item = Handle<'a, Face>> {
-        let start = self.leaf_face as usize;
-        let end = start + self.num_leaf_faces as usize;
+        let start = self.first_leaf_face as usize;
+        let end = start + self.leaf_face_count as usize;
         let bsp = self.bsp;
         bsp.leaf_faces[start..end]
             .iter()
