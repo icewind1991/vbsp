@@ -12,12 +12,7 @@ use binread::BinRead;
 use bspfile::BspFile;
 use itertools::{GroupBy, Itertools};
 use reader::LumpReader;
-use std::{
-    convert::TryInto,
-    io::{self, Read},
-    iter::once,
-    ops::Deref,
-};
+use std::{io::Read, iter::once, ops::Deref};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -316,8 +311,8 @@ impl<'a, T> Handle<'a, T> {
 
 impl<'a> Handle<'a, Model> {
     pub fn faces(&self) -> impl Iterator<Item = Handle<'a, Face>> {
-        let start = self.face as usize;
-        let end = start + self.num_faces as usize;
+        let start = self.first_face as usize;
+        let end = start + self.face_count as usize;
         let bsp = self.bsp;
 
         bsp.faces[start..end]
@@ -377,6 +372,7 @@ impl<'a> Handle<'a, Leaf> {
         if cluster < 0 {
             None
         } else {
+            let visible_clusters = bsp.vis_data.visible_clusters(cluster);
             Some(
                 bsp.leaves
                     .iter()
@@ -384,9 +380,7 @@ impl<'a> Handle<'a, Leaf> {
                         if leaf.cluster == cluster {
                             true
                         } else if leaf.cluster > 0 {
-                            let cluster_vis_start =
-                                leaf.cluster as u64 * bsp.vis_data.sz_vecs as u64 * 8;
-                            bsp.vis_data.vecs[cluster_vis_start + cluster as u64]
+                            visible_clusters[leaf.cluster as u64]
                         } else {
                             false
                         }

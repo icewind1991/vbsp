@@ -61,7 +61,7 @@ pub struct LumpEntry {
 
 #[derive(Debug, Clone, BinRead)]
 pub struct LeafFace {
-    pub face: u32,
+    pub face: u16,
 }
 
 #[derive(Clone)]
@@ -276,7 +276,8 @@ static_assertions::const_assert_eq!(size_of::<Node>(), 32);
 pub struct Leaf {
     pub contents: i32,
     pub cluster: i16,
-    pub area_and_flags: i16, // first 9 bits is area, last 7 bits is flags
+    pub area_and_flags: i16,
+    // first 9 bits is area, last 7 bits is flags
     pub mins: [i16; 3],
     pub maxs: [i16; 3],
     pub first_leaf_face: u16,
@@ -290,18 +291,20 @@ static_assertions::const_assert_eq!(size_of::<Leaf>(), 32);
 
 #[derive(Debug, Clone, BinRead)]
 pub struct LeafBrush {
-    pub brush: u32,
+    pub brush: u16,
 }
 
 #[derive(Debug, Clone, BinRead)]
 pub struct Model {
-    pub mins: [f32; 3],
-    pub maxs: [f32; 3],
-    pub face: u32,
-    pub num_faces: u32,
-    pub brush: u32,
-    pub num_brushes: u32,
+    pub mins: Vector,
+    pub maxs: Vector,
+    pub origin: Vector,
+    pub head_node: i32,
+    pub first_face: i32,
+    pub face_count: i32,
 }
+
+static_assertions::const_assert_eq!(size_of::<Model>(), 48);
 
 #[derive(Debug, Clone, BinRead)]
 pub struct Brush {
@@ -312,8 +315,10 @@ pub struct Brush {
 
 #[derive(Debug, Clone, BinRead)]
 pub struct BrushSide {
-    pub plane: u32,
-    pub texture: u32,
+    pub plane: u16,
+    pub texture_info: i16,
+    pub displacement_info: i16,
+    pub bevel: i16,
 }
 
 #[derive(Debug, Clone, BinRead)]
@@ -349,18 +354,6 @@ impl SurfaceEdge {
             EdgeDirection::LastToFirst
         }
     }
-}
-
-#[derive(Debug, Clone, BinRead)]
-pub struct MeshVert {
-    pub offset: u32,
-}
-
-#[derive(Debug, Clone, BinRead)]
-pub struct Effect {
-    pub name: Name,
-    pub brush: u32,
-    pub unknown: u32,
 }
 
 #[derive(Debug, Clone, BinRead)]
@@ -404,9 +397,40 @@ pub struct Lightvol {
 
 #[derive(Default, Debug, Clone)]
 pub struct VisData {
-    pub n_vecs: u32,
-    // Number of vectors.
-    pub sz_vecs: u32,
-    // Size of each vector, in bytes.
-    pub vecs: BitVec<u8>, // Visibility data. One bit per cluster per vector.
+    pub cluster_count: u32,
+    pub pvs_offsets: Vec<i32>,
+    pub pas_offsets: Vec<i32>,
+    pub data: Vec<u8>,
+}
+
+impl VisData {
+    pub fn visible_clusters(&self, cluster: i16) -> BitVec<u8> {
+        let offset = self.pvs_offsets[cluster as usize] as usize;
+        let pvs_buffer = &self.data[offset..];
+        let mut visible_clusters = BitVec::with_capacity(self.cluster_count as u64);
+        visible_clusters.resize(self.cluster_count as u64, false);
+
+        let mut cluster_index = 0;
+        let mut buffer_index = 0;
+
+        while cluster_index < self.cluster_count {
+            if pvs_buffer[buffer_index] == 0 {
+                let skip = pvs_buffer[buffer_index + 1];
+                cluster_index += skip as u32;
+                buffer_index += 2;
+            } else {
+                let packed = pvs_buffer[buffer_index];
+                for i in 0..8 {
+                    let bit = 1 << i;
+                    if (packed & bit) == bit {
+                        visible_clusters.set(cluster_index as u64, true);
+                    }
+                    cluster_index += 1;
+                }
+                buffer_index += 1;
+            }
+        }
+
+        visible_clusters
+    }
 }

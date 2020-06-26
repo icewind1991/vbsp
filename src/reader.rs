@@ -1,6 +1,5 @@
 use crate::*;
 use binread::BinReaderExt;
-use bv::BitVec;
 use std::borrow::Cow;
 use std::mem::size_of;
 
@@ -50,34 +49,23 @@ impl<R: BinReaderExt + Read> LumpReader<R> {
             return Ok(VisData::default());
         }
 
-        let n_vecs = self.inner.read_le()?;
-        let sz_vecs = self.inner.read_le()?;
-        let vecs_size = n_vecs as u64 * sz_vecs as u64;
-        let mut vecs = Vec::with_capacity(
-            vecs_size
-                .try_into()
-                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?,
-        );
-        self.inner
-            .by_ref()
-            .take(vecs_size as u64)
-            .read_to_end(&mut vecs)?;
+        let cluster_count = self.inner.read_le()?;
+        let mut pvs_offsets = Vec::with_capacity(cluster_count as usize);
+        let mut pas_offsets = Vec::with_capacity(cluster_count as usize);
 
-        if (vecs.len() as u64) < vecs_size {
-            return Err(BspError::UnexpectedEOF);
+        for _ in 0..cluster_count {
+            pvs_offsets.push(self.inner.read_le()?);
+            pas_offsets.push(self.inner.read_le()?);
         }
 
-        if (vecs.len() as u64) > vecs_size {
-            return Err(BspError::UnexpectedExtraData);
-        }
+        let mut data = Vec::new();
+        self.inner.read_to_end(&mut data)?;
 
-        let vecs = BitVec::from_bits(vecs);
-
-        let vis_data = VisData {
-            n_vecs,
-            sz_vecs,
-            vecs,
-        };
-        Ok(vis_data)
+        Ok(VisData {
+            cluster_count,
+            pvs_offsets,
+            pas_offsets,
+            data,
+        })
     }
 }
