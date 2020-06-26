@@ -218,9 +218,9 @@ impl BinRead for Name {
 
 #[derive(Debug, Clone, BinRead)]
 pub struct Vector {
-    x: f32,
-    y: f32,
-    z: f32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
 }
 
 impl Vector {

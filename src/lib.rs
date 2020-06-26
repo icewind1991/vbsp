@@ -3,6 +3,7 @@ mod data;
 mod reader;
 
 use crate::bspfile::LumpType;
+pub use crate::data::Vector;
 use crate::data::*;
 use binread::io::Cursor;
 use binread::BinRead;
