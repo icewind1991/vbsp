@@ -379,20 +379,6 @@ pub struct Face {
 
 static_assertions::const_assert_eq!(size_of::<Face>(), 56);
 
-#[derive(Default, Clone, Copy, BinRead, Debug)]
-pub struct LightColor {
-    r: u8,
-    g: u8,
-    b: u8,
-}
-
-#[derive(Debug, Clone, BinRead)]
-pub struct Lightvol {
-    ambient: [u8; 3],
-    directional: [u8; 3],
-    dir: [u8; 2],
-}
-
 #[derive(Default, Debug, Clone)]
 pub struct VisData {
     pub cluster_count: u32,
