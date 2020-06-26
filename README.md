@@ -7,13 +7,9 @@ Currently only supports the tf2 version of bsp files, but adding other sourcemod
 # Example usage
 
 ```rust
-extern crate bsp;
-
-use std::fs::File;
-
-fn main() -> std::io::Result<()> {
+fn main() -> Result<(), vbsp::BspError> {
     let data = std::fs::read("maps/cp_steel.bsp")?;
-    let bsp = bsp::Bsp::read(&data)?;
+    let bsp = vbsp::Bsp::read(&data)?;
     println!("{:?}", bsp);
 
     Ok(())
