@@ -229,6 +229,18 @@ impl Vector {
     }
 }
 
+impl From<Vector> for [f32; 3] {
+    fn from(vector: Vector) -> Self {
+        [vector.x, vector.y, vector.z]
+    }
+}
+
+impl From<&Vector> for [f32; 3] {
+    fn from(vector: &Vector) -> Self {
+        [vector.x, vector.y, vector.z]
+    }
+}
+
 #[derive(Debug, Clone, BinRead)]
 pub struct TextureInfo {
     pub texture_scale: [f32; 4],

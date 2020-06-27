@@ -3,6 +3,7 @@ mod data;
 mod reader;
 
 use crate::bspfile::LumpType;
+pub use crate::data::TextureFlags;
 pub use crate::data::Vector;
 use crate::data::*;
 use binread::io::Cursor;
@@ -10,7 +11,7 @@ use binread::BinRead;
 use bspfile::BspFile;
 use itertools::{GroupBy, Itertools};
 use reader::LumpReader;
-use std::{io::Read, iter::once, ops::Deref};
+use std::{io::Read, ops::Deref};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -165,6 +166,7 @@ pub struct Bsp {
     pub edges: Vec<Edge>,
     pub surface_edges: Vec<SurfaceEdge>,
     pub faces: Vec<Face>,
+    pub original_faces: Vec<Face>,
     pub vis_data: VisData,
 }
 
@@ -216,6 +218,9 @@ impl Bsp {
         let faces = bsp_file
             .lump_reader(LumpType::Faces)?
             .read_vec(|r| r.read())?;
+        let original_faces = bsp_file
+            .lump_reader(LumpType::OriginalFaces)?
+            .read_vec(|r| r.read())?;
         let vis_data = bsp_file.lump_reader(LumpType::Visibility)?.read_visdata()?;
 
         Ok({
@@ -236,6 +241,7 @@ impl Bsp {
                 edges,
                 surface_edges,
                 faces,
+                original_faces,
                 vis_data,
             }
         })
@@ -299,6 +305,13 @@ impl Bsp {
             }
         }
     }
+
+    pub fn original_faces(&self) -> impl Iterator<Item = Handle<Face>> {
+        self.faces.iter().map(move |face| Handle {
+            bsp: self,
+            data: face,
+        })
+    }
 }
 
 impl<'a, T> Handle<'a, T> {
@@ -338,20 +351,25 @@ impl<'a> Handle<'a, Face> {
             })
     }
 
-    pub fn vertices(&'a self) -> impl Iterator<Item = &'a Vertex> + 'a {
+    pub fn vertices(&self) -> impl Iterator<Item = &'a Vertex> + 'a {
+        let bsp = self.bsp;
+        self.vertex_indexes()
+            .flat_map(move |vert_index| bsp.vertices.get(vert_index as usize))
+    }
+
+    pub fn vertex_indexes(&self) -> impl Iterator<Item = u16> + 'a {
+        let bsp = self.bsp;
         (self.data.first_edge..(self.data.first_edge + self.data.num_edges as i32))
-            .flat_map(move |surface_edge| self.bsp.surface_edges.get(surface_edge as usize))
+            .flat_map(move |surface_edge| bsp.surface_edges.get(surface_edge as usize))
             .flat_map(move |surface_edge| {
-                self.bsp
-                    .edges
+                bsp.edges
                     .get(surface_edge.edge_index())
                     .map(|edge| (edge, surface_edge.direction()))
             })
-            .flat_map(|(edge, direction)| match direction {
-                EdgeDirection::FirstToLast => once(edge.start_index).chain(once(edge.end_index)),
-                EdgeDirection::LastToFirst => once(edge.end_index).chain(once(edge.start_index)),
+            .map(|(edge, direction)| match direction {
+                EdgeDirection::FirstToLast => edge.start_index,
+                EdgeDirection::LastToFirst => edge.end_index,
             })
-            .flat_map(move |vert_index| self.bsp.vertices.get(vert_index as usize))
     }
 }
 
