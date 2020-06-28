@@ -21,7 +21,7 @@ parse-display = "0.1.2"
 static_assertions = "1.1.0"
 
 [dev-dependencies]
-obj = "0.10"
+obj = { version = "0.10", git = "https://github.com/icewind1991/obj.git", branch = "save-buf-writer" }
 main_error = "0.1.0"
 
 [features]
