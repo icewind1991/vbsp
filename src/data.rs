@@ -9,7 +9,7 @@ use std::fmt;
 use std::io::{Error, ErrorKind};
 use std::iter::once;
 use std::mem::size_of;
-use std::ops::Index;
+use std::ops::{Add, Index};
 
 #[derive(Clone)]
 pub struct Directories {
@@ -216,7 +216,7 @@ impl BinRead for Name {
     }
 }
 
-#[derive(Debug, Clone, BinRead)]
+#[derive(Debug, Clone, Copy, BinRead)]
 pub struct Vector {
     pub x: f32,
     pub y: f32,
@@ -226,6 +226,18 @@ pub struct Vector {
 impl Vector {
     pub fn iter(&self) -> impl Iterator<Item = f32> {
         once(self.x).chain(once(self.y)).chain(once(self.z))
+    }
+}
+
+impl Add<Vector> for Vector {
+    type Output = Vector;
+
+    fn add(self, rhs: Vector) -> Self::Output {
+        Vector {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            z: self.z + rhs.z,
+        }
     }
 }
 

@@ -1,5 +1,5 @@
 mod bspfile;
-mod data;
+pub mod data;
 mod reader;
 
 use crate::bspfile::LumpType;
@@ -370,6 +370,25 @@ impl<'a> Handle<'a, Face> {
                 EdgeDirection::FirstToLast => edge.start_index,
                 EdgeDirection::LastToFirst => edge.end_index,
             })
+    }
+
+    pub fn is_visible(&self) -> bool {
+        self.texture()
+            .map(|texture| {
+                !texture.flags.intersects(
+                    TextureFlags::LIGHT
+                        | TextureFlags::SKY2D
+                        | TextureFlags::SKY
+                        | TextureFlags::WARP
+                        | TextureFlags::TRANS
+                        | TextureFlags::TRIGGER
+                        | TextureFlags::HINT
+                        | TextureFlags::SKIP
+                        | TextureFlags::NODRAW
+                        | TextureFlags::HITBOX,
+                )
+            })
+            .unwrap_or_default()
     }
 }
 
