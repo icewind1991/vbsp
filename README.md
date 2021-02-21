@@ -18,7 +18,7 @@ fn main() -> Result<(), vbsp::BspError> {
 
 ## Credits
 
-This project is adapter from the [quake bsp parser] and
+This project is adapted from the [quake bsp parser] and
 wouldn't be possible without information from the [source engine wiki].
 
 [quake bsp parser]: https://github.com/Vurich/bsp
