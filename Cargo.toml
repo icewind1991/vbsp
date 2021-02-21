@@ -10,18 +10,18 @@ edition = "2018"
 readme = "README.md"
 
 [dependencies]
-arrayvec = "0.4"
+arrayvec = "0.5"
 bitflags = "1.0"
 bv = "0.11"
-itertools = "0.8"
+itertools = "0.10"
 thiserror = "1.0"
-lzma-rs = "0.1.3"
+lzma-rs = "0.1"
 binread = "1.0"
-parse-display = "0.1.2"
-static_assertions = "1.1.0"
+parse-display = "0.4"
+static_assertions = "1.1"
 
 [dev-dependencies]
-obj = { version = "0.10", git = "https://github.com/icewind1991/obj.git", branch = "save-buf-writer" }
+obj = "0.10"
 main_error = "0.1.0"
 
 [features]
