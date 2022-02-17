@@ -1,5 +1,5 @@
 use crate::*;
-use binread::BinReaderExt;
+use binrw::BinReaderExt;
 use std::borrow::Cow;
 use std::mem::size_of;
 
@@ -40,7 +40,10 @@ impl<R: BinReaderExt + Read> LumpReader<R> {
         Ok(entries)
     }
 
-    pub fn read<T: BinRead>(&mut self) -> BspResult<T> {
+    pub fn read<T: BinRead>(&mut self) -> BspResult<T>
+    where
+        T::Args: Default,
+    {
         Ok(self.inner.read_le()?)
     }
 

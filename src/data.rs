@@ -1,7 +1,7 @@
 use crate::bspfile::LumpType;
 use arrayvec::ArrayString;
-use binread::io::SeekFrom;
-use binread::{BinRead, BinResult, ReadOptions};
+use binrw::io::SeekFrom;
+use binrw::{BinRead, BinResult, ReadOptions};
 use bitflags::bitflags;
 use bv::BitVec;
 use parse_display::Display;
@@ -11,26 +11,9 @@ use std::iter::once;
 use std::mem::size_of;
 use std::ops::{Add, Index};
 
-#[derive(Clone)]
+#[derive(Clone, BinRead)]
 pub struct Directories {
     entries: [LumpEntry; 64],
-}
-
-impl BinRead for Directories {
-    type Args = <LumpEntry as BinRead>::Args;
-
-    fn read_options<R: binread::io::Read + binread::io::Seek>(
-        reader: &mut R,
-        options: &ReadOptions,
-        args: Self::Args,
-    ) -> BinResult<Self> {
-        let mut entries = [LumpEntry::default(); 64];
-        for i in 0..64 {
-            entries[i] = LumpEntry::read_options(reader, options, args)?;
-        }
-
-        Ok(Directories { entries })
-    }
 }
 
 impl Index<LumpType> for Directories {
@@ -184,24 +167,20 @@ pub struct Name(ArrayString<64>);
 impl BinRead for Name {
     type Args = ();
 
-    fn read_options<R: binread::io::Read + binread::io::Seek>(
+    fn read_options<R: binrw::io::Read + binrw::io::Seek>(
         reader: &mut R,
         options: &ReadOptions,
         args: Self::Args,
     ) -> BinResult<Self> {
         use std::str;
 
-        let mut name_buf: [u8; 64] = [0; 64];
-
-        for i in 0..64 {
-            name_buf[i] = u8::read_options(reader, options, args)?;
-        }
+        let name_buf = <[u8; 64]>::read_options(reader, options, args)?;
 
         let zero_pos =
             name_buf
                 .iter()
                 .position(|c| *c == 0)
-                .ok_or_else(|| binread::Error::AssertFail {
+                .ok_or_else(|| binrw::Error::AssertFail {
                     pos: reader.seek(SeekFrom::Current(0)).unwrap(),
                     message: "Name not null terminated".to_string(),
                 })?;

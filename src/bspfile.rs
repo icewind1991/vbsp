@@ -1,6 +1,6 @@
 use crate::*;
-use binread::io::Cursor;
-use binread::BinReaderExt;
+use binrw::io::Cursor;
+use binrw::BinReaderExt;
 use lzma_rs::decompress::{Options, UnpackedSize};
 use std::borrow::Cow;
 

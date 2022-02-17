@@ -6,15 +6,16 @@ use crate::bspfile::LumpType;
 pub use crate::data::TextureFlags;
 pub use crate::data::Vector;
 use crate::data::*;
-use binread::io::Cursor;
-use binread::BinRead;
+use binrw::io::Cursor;
+use binrw::BinRead;
 use bspfile::BspFile;
 use itertools::{GroupBy, Itertools};
+use miette::Diagnostic;
 use reader::LumpReader;
 use std::{io::Read, ops::Deref};
 use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Diagnostic)]
 pub enum BspError {
     #[error("unexpected magic numbers or version, is this a valve bsp?")]
     UnexpectedHeader(Header),
@@ -41,7 +42,7 @@ pub enum BspError {
     #[error("error while reading data: {0}")]
     ReadError(#[from] std::io::Error),
     #[error("error while reading data: {0}")]
-    BinReadError(#[from] binread::Error),
+    BinReadError(#[from] binrw::Error),
 }
 
 pub type BspResult<T> = Result<T, BspError>;
