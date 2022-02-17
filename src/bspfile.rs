@@ -61,7 +61,7 @@ impl<'a> BspFile<'a> {
                 let mut cursor = Cursor::new(raw_data);
                 if b"LZMA" != &<[u8; 4]>::read(&mut cursor)? {
                     return Err(BspError::LumpDecompressError(
-                        lzma_rs::error::Error::LZMAError("Invalid lzma header".into()),
+                        lzma_rs::error::Error::LzmaError("Invalid lzma header".into()),
                     ));
                 }
                 let actual_size: u32 = cursor.read_le()?;
@@ -71,6 +71,8 @@ impl<'a> BspFile<'a> {
                     &mut data,
                     &Options {
                         unpacked_size: UnpackedSize::UseProvided(Some(actual_size as u64)),
+                        allow_incomplete: false,
+                        memlimit: None,
                     },
                 )
                 .map_err(BspError::LumpDecompressError)?;

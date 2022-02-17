@@ -73,6 +73,7 @@ impl fmt::Debug for Entities {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         #[derive(Debug)]
         struct Entities<'a> {
+            #[allow(dead_code)]
             entities: Vec<Entity<'a>>,
         }
 
@@ -178,7 +179,7 @@ bitflags! {
 }
 
 #[derive(Debug, Display, Clone)]
-pub struct Name(ArrayString<[u8; 64]>);
+pub struct Name(ArrayString<64>);
 
 impl BinRead for Name {
     type Args = ();
@@ -201,7 +202,7 @@ impl BinRead for Name {
                 .iter()
                 .position(|c| *c == 0)
                 .ok_or_else(|| binread::Error::AssertFail {
-                    pos: reader.seek(SeekFrom::Current(0)).unwrap() as usize,
+                    pos: reader.seek(SeekFrom::Current(0)).unwrap(),
                     message: "Name not null terminated".to_string(),
                 })?;
         let name = &name_buf[..zero_pos];
