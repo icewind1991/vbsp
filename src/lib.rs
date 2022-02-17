@@ -1,5 +1,6 @@
 mod bspfile;
 pub mod data;
+mod error;
 mod reader;
 
 use crate::bspfile::LumpType;
@@ -9,41 +10,10 @@ use crate::data::*;
 use binrw::io::Cursor;
 use binrw::BinRead;
 use bspfile::BspFile;
+pub use error::{BspError, StringError};
 use itertools::{GroupBy, Itertools};
-use miette::Diagnostic;
 use reader::LumpReader;
 use std::{io::Read, ops::Deref};
-use thiserror::Error;
-
-#[derive(Debug, Error, Diagnostic)]
-pub enum BspError {
-    #[error("unexpected magic numbers or version, is this a valve bsp?")]
-    UnexpectedHeader(Header),
-    #[error("bsp lump is out of bounds of the bsp file")]
-    LumpOutOfBounds(LumpEntry),
-    #[error("unexpected length of uncompressed lump, got {got} but expected {expected}")]
-    UnexpectedUncompressedLumpSize { got: u32, expected: u32 },
-    #[error("error while decompressing lump")]
-    LumpDecompressError(lzma_rs::error::Error),
-    #[error("malformed utf8 data")]
-    Utf8Error(#[from] std::string::FromUtf8Error),
-    #[error("Directory entry length isn't a multiple of element size")]
-    MalformedLump,
-    #[error("invalid surface flag in {0}")]
-    InvalidSurfaceFlag(Name),
-    #[error("invalid content flag in {0}")]
-    InvalidContentFlag(Name),
-    #[error("non null-terminated name")]
-    InvalidName,
-    #[error("unexpected eof while reading data")]
-    UnexpectedEOF,
-    #[error("extra data at the end of the lump")]
-    UnexpectedExtraData,
-    #[error("error while reading data: {0}")]
-    ReadError(#[from] std::io::Error),
-    #[error("error while reading data: {0}")]
-    BinReadError(#[from] binrw::Error),
-}
 
 pub type BspResult<T> = Result<T, BspError>;
 

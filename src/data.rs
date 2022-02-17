@@ -1,4 +1,5 @@
 use crate::bspfile::LumpType;
+use crate::StringError;
 use arrayvec::ArrayString;
 use binrw::io::SeekFrom;
 use binrw::{BinRead, BinResult, ReadOptions};
@@ -6,7 +7,6 @@ use bitflags::bitflags;
 use bv::BitVec;
 use parse_display::Display;
 use std::fmt;
-use std::io::{Error, ErrorKind};
 use std::iter::once;
 use std::mem::size_of;
 use std::ops::{Add, Index};
@@ -180,14 +180,19 @@ impl BinRead for Name {
             name_buf
                 .iter()
                 .position(|c| *c == 0)
-                .ok_or_else(|| binrw::Error::AssertFail {
+                .ok_or_else(|| binrw::Error::Custom {
                     pos: reader.seek(SeekFrom::Current(0)).unwrap(),
-                    message: "Name not null terminated".to_string(),
+                    err: Box::new(StringError::NotNullTerminated),
                 })?;
         let name = &name_buf[..zero_pos];
         Ok(Name(
             ArrayString::from(
-                str::from_utf8(name).map_err(|err| Error::new(ErrorKind::InvalidData, err))?,
+                str::from_utf8(name)
+                    .map_err(StringError::NonUTF8)
+                    .map_err(|e| binrw::Error::Custom {
+                        pos: reader.seek(SeekFrom::Current(0)).unwrap(),
+                        err: Box::new(e),
+                    })?,
             )
             .expect(
                 "Programmer error: it should be impossible for the string to exceed the capacity",
