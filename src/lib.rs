@@ -361,6 +361,22 @@ impl<'a> Handle<'a, Face> {
             })
             .unwrap_or_default()
     }
+
+    /// Triangulate the face
+    ///
+    /// Triangulation only works for faces that can be turned into a triangle fan trivially
+    pub fn triangulate(&self) -> impl Iterator<Item = [Vector; 3]> + 'a {
+        let mut vertices = self.vertices();
+
+        let a = vertices.next().expect("face with <3 points");
+        let mut b = vertices.next().expect("face with <3 points");
+
+        vertices.map(move |c| {
+            let points = [a.position, b.position, c.position];
+            b = c;
+            points
+        })
+    }
 }
 
 impl Handle<'_, Node> {
