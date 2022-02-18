@@ -8,6 +8,7 @@ description = "Rust parser for valve bsp files."
 license = "MIT"
 edition = "2021"
 readme = "README.md"
+exclude = ["*.bsp"]
 
 [dependencies]
 arrayvec = "0.7.2"
