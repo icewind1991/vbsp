@@ -17,6 +17,10 @@ use std::{io::Read, ops::Deref};
 
 pub type BspResult<T> = Result<T, BspError>;
 
+/// A handle represents a data structure in the bsp file and the bsp file containing it.
+///
+/// Keeping a reference of the bsp file with the data is required since a lot of data types
+/// reference parts from other structures in the bsp file
 #[derive(Debug)]
 pub struct Handle<'a, T> {
     bsp: &'a Bsp,
@@ -92,8 +96,8 @@ impl Deref for Leaves {
 }
 
 impl IntoIterator for Leaves {
-    type IntoIter = <Vec<Leaf> as IntoIterator>::IntoIter;
     type Item = Leaf;
+    type IntoIter = <Vec<Leaf> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         self.leaves.into_iter()
@@ -101,8 +105,8 @@ impl IntoIterator for Leaves {
 }
 
 impl<'a> IntoIterator for &'a Leaves {
-    type IntoIter = <&'a [Leaf] as IntoIterator>::IntoIter;
     type Item = &'a Leaf;
+    type IntoIter = <&'a [Leaf] as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         (&self.leaves[..]).iter()
@@ -110,8 +114,8 @@ impl<'a> IntoIterator for &'a Leaves {
 }
 
 impl<'a> IntoIterator for &'a mut Leaves {
-    type IntoIter = <&'a mut [Leaf] as IntoIterator>::IntoIter;
     type Item = &'a mut Leaf;
+    type IntoIter = <&'a mut [Leaf] as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         self.leaves.iter_mut()
@@ -119,6 +123,7 @@ impl<'a> IntoIterator for &'a mut Leaves {
 }
 
 // TODO: Store all the allocated objects inline to improve cache usage
+/// A parsed bsp file
 #[derive(Debug)]
 pub struct Bsp {
     pub header: Header,
@@ -246,14 +251,17 @@ impl Bsp {
         })
     }
 
+    /// Get the root node of the bsp
     pub fn root_node(&self) -> Option<Handle<'_, Node>> {
         self.node(0)
     }
 
+    /// Get all models stored in the bsp
     pub fn models(&self) -> impl Iterator<Item = Handle<'_, Model>> {
         self.models.iter().map(move |m| Handle::new(self, m))
     }
 
+    /// Find a leaf for a specific position
     pub fn leaf_at(&self, point: Vector) -> Option<Handle<'_, Leaf>> {
         let mut current = self.root_node()?;
 
@@ -277,6 +285,7 @@ impl Bsp {
         }
     }
 
+    /// Get all faces stored in the bsp
     pub fn original_faces(&self) -> impl Iterator<Item = Handle<Face>> {
         self.faces.iter().map(move |face| Handle {
             bsp: self,
@@ -286,12 +295,13 @@ impl Bsp {
 }
 
 impl<'a, T> Handle<'a, T> {
-    pub fn new(bsp: &'a Bsp, data: &'a T) -> Self {
+    fn new(bsp: &'a Bsp, data: &'a T) -> Self {
         Handle { bsp, data }
     }
 }
 
 impl<'a> Handle<'a, Model> {
+    /// Get all faces that make up the model
     pub fn faces(&self) -> impl Iterator<Item = Handle<'a, Face>> {
         let start = self.first_face as usize;
         let end = start + self.face_count as usize;
@@ -304,6 +314,7 @@ impl<'a> Handle<'a, Model> {
 }
 
 impl<'a> Handle<'a, TextureInfo> {
+    /// Get the texture data references by the texture
     pub fn texture(&self) -> Option<&TextureData> {
         self.bsp
             .textures_data
@@ -312,6 +323,7 @@ impl<'a> Handle<'a, TextureInfo> {
 }
 
 impl<'a> Handle<'a, Face> {
+    /// Get the texture of the face
     pub fn texture(&self) -> Option<Handle<TextureInfo>> {
         self.bsp
             .textures_info
@@ -322,12 +334,16 @@ impl<'a> Handle<'a, Face> {
             })
     }
 
+    /// Get all vertices making up the face
     pub fn vertices(&self) -> impl Iterator<Item = &'a Vertex> + 'a {
         let bsp = self.bsp;
         self.vertex_indexes()
             .flat_map(move |vert_index| bsp.vertices.get(vert_index as usize))
     }
 
+    /// Get the vertex indexes of all vertices making up the face
+    ///
+    /// The indexes index into the `vertices` field of the bsp file
     pub fn vertex_indexes(&self) -> impl Iterator<Item = u16> + 'a {
         let bsp = self.bsp;
         (self.data.first_edge..(self.data.first_edge + self.data.num_edges as i32))
@@ -343,6 +359,7 @@ impl<'a> Handle<'a, Face> {
             })
     }
 
+    /// Check if the face is flagged as visible
     pub fn is_visible(&self) -> bool {
         self.texture()
             .map(|texture| {
@@ -380,14 +397,15 @@ impl<'a> Handle<'a, Face> {
 }
 
 impl Handle<'_, Node> {
+    /// Get the plane splitting this node
     pub fn plane(&self) -> Option<Handle<'_, Plane>> {
         self.bsp.plane(self.plane_index as _)
     }
 }
 
 impl<'a> Handle<'a, Leaf> {
+    /// Get all other leaves visible from this one
     pub fn visible_set(&self) -> Option<impl Iterator<Item = Handle<'a, Leaf>>> {
-        // TODO: Use `itertools::Either`?
         let cluster = self.cluster;
         let bsp = self.bsp;
 
@@ -412,6 +430,7 @@ impl<'a> Handle<'a, Leaf> {
         }
     }
 
+    /// Get all faces in this leaf
     pub fn faces(&self) -> impl Iterator<Item = Handle<'a, Face>> {
         let start = self.first_leaf_face as usize;
         let end = start + self.leaf_face_count as usize;
