@@ -29,8 +29,8 @@ impl<T> Clone for Handle<'_, T> {
     }
 }
 
-impl<'a, T> Handle<'a, T> {
-    pub fn as_ref(&self) -> &'a T {
+impl<'a, T> AsRef<T> for Handle<'a, T> {
+    fn as_ref(&self) -> &'a T {
         self.data
     }
 }
@@ -105,7 +105,7 @@ impl<'a> IntoIterator for &'a Leaves {
     type Item = &'a Leaf;
 
     fn into_iter(self) -> Self::IntoIter {
-        (&self.leaves[..]).into_iter()
+        (&self.leaves[..]).iter()
     }
 }
 
@@ -114,7 +114,7 @@ impl<'a> IntoIterator for &'a mut Leaves {
     type Item = &'a mut Leaf;
 
     fn into_iter(self) -> Self::IntoIter {
-        (&mut self.leaves[..]).into_iter()
+        self.leaves.iter_mut()
     }
 }
 

@@ -135,7 +135,7 @@ impl<'a> Entity<'a> {
             }
         }
 
-        Iter { buf: &self.buf }
+        Iter { buf: self.buf }
     }
 }
 

@@ -52,7 +52,7 @@ impl<'a> BspFile<'a> {
         let raw_data = self
             .data
             .get(lump.offset as usize..lump.offset as usize + lump.length as usize)
-            .ok_or_else(|| BspError::LumpOutOfBounds(lump.clone()))?;
+            .ok_or_else(|| BspError::LumpOutOfBounds(*lump))?;
 
         Ok(match lump.ident {
             0 => Cow::Borrowed(raw_data),
