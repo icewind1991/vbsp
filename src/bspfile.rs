@@ -90,6 +90,7 @@ impl<'a> BspFile<'a> {
 }
 
 #[allow(dead_code)]
+#[repr(C)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum LumpType {
     Entities,
@@ -157,3 +158,5 @@ pub enum LumpType {
     PhysLevel,
     DisplacementMultiBlend,
 }
+
+static_assertions::const_assert_eq!(LumpType::DisplacementMultiBlend as usize, 63);
