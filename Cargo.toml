@@ -16,7 +16,6 @@ bv = "0.11.1"
 thiserror = "1.0.30"
 lzma-rs = "0.2.0"
 binrw = "0.8.0"
-parse-display = "0.5.3"
 static_assertions = "1.1.0"
 miette = "3.2.0"
 

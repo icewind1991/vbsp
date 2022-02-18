@@ -5,8 +5,8 @@ use binrw::io::SeekFrom;
 use binrw::{BinRead, BinResult, ReadOptions};
 use bitflags::bitflags;
 use bv::BitVec;
-use parse_display::Display;
 use std::fmt;
+use std::fmt::{Debug, Display, Formatter};
 use std::mem::size_of;
 use std::ops::{Add, Index};
 
@@ -160,8 +160,14 @@ bitflags! {
     }
 }
 
-#[derive(Debug, Display, Clone)]
+#[derive(Debug, Clone)]
 pub struct Name(ArrayString<64>);
+
+impl Display for Name {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
 
 impl BinRead for Name {
     type Args = ();
