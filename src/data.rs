@@ -280,7 +280,7 @@ pub struct Node {
 
 static_assertions::const_assert_eq!(size_of::<Node>(), 32);
 
-#[derive(Debug, Clone, BinRead)]
+#[derive(Default, Debug, Clone, BinRead)]
 pub struct Leaf {
     pub contents: i32,
     pub cluster: i16,

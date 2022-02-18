@@ -11,7 +11,6 @@ use binrw::io::Cursor;
 use binrw::BinRead;
 use bspfile::BspFile;
 pub use error::{BspError, StringError};
-use itertools::{GroupBy, Itertools};
 use reader::LumpReader;
 use std::{io::Read, ops::Deref};
 
@@ -71,14 +70,70 @@ impl Leaves {
         self.leaves
     }
 
-    // TODO: There's no syntax for `-> T where &T: IntoIterator<...>` and `GroupBy`
-    //       doesn't implement `IntoIterator` directly, only `&GroupBy`, so we have
-    //       to explicitly specify the type.
-    pub fn clusters<'this>(
-        &'this self,
-    ) -> GroupBy<i16, impl Iterator<Item = &'this Leaf>, impl FnMut(&&'this Leaf) -> i16> {
-        self.leaves.iter().group_by(|leaf: &&Leaf| leaf.cluster)
+    pub fn clusters(&self) -> impl Iterator<Item = impl Iterator<Item = &Leaf>> {
+        LeafClusters {
+            leaves: &self.leaves,
+            index: 0,
+        }
     }
+}
+
+struct LeafClusters<'a> {
+    leaves: &'a [Leaf],
+    index: usize,
+}
+
+impl<'a> Iterator for LeafClusters<'a> {
+    type Item = <&'a [Leaf] as IntoIterator>::IntoIter;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let cluster = self.leaves.get(self.index)?.cluster;
+        let remaining_leaves = self.leaves.get(self.index..)?;
+        let cluster_size = remaining_leaves
+            .iter()
+            .take_while(|leaf| leaf.cluster == cluster)
+            .count();
+        self.index += cluster_size;
+        Some(remaining_leaves[0..cluster_size].iter())
+    }
+}
+
+#[test]
+fn test_leaf_clusters() {
+    let leaves: Leaves = vec![
+        Leaf {
+            contents: 0,
+            cluster: 0,
+            ..Default::default()
+        },
+        Leaf {
+            contents: 1,
+            cluster: 0,
+            ..Default::default()
+        },
+        Leaf {
+            contents: 2,
+            cluster: 1,
+            ..Default::default()
+        },
+        Leaf {
+            contents: 3,
+            cluster: 2,
+            ..Default::default()
+        },
+        Leaf {
+            contents: 4,
+            cluster: 2,
+            ..Default::default()
+        },
+    ]
+    .into();
+
+    let clustered: Vec<Vec<i32>> = leaves
+        .clusters()
+        .map(|cluster| cluster.map(|leaf| leaf.contents).collect())
+        .collect();
+    assert_eq!(vec![vec![0, 1], vec![2], vec![3, 4],], clustered);
 }
 
 impl From<Vec<Leaf>> for Leaves {
