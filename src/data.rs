@@ -7,7 +7,6 @@ use bitflags::bitflags;
 use bv::BitVec;
 use parse_display::Display;
 use std::fmt;
-use std::iter::once;
 use std::mem::size_of;
 use std::ops::{Add, Index};
 
@@ -210,7 +209,7 @@ pub struct Vector {
 
 impl Vector {
     pub fn iter(&self) -> impl Iterator<Item = f32> {
-        once(self.x).chain(once(self.y)).chain(once(self.z))
+        [self.x, self.y, self.z].into_iter()
     }
 }
 

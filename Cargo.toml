@@ -6,7 +6,7 @@ homepage = "https://github.com/icewind1991/vbsp"
 repository = "https://github.com/icewind1991/vbsp"
 description = "Rust parser for valve bsp files."
 license = "MIT"
-edition = "2018"
+edition = "2021"
 readme = "README.md"
 
 [dependencies]
