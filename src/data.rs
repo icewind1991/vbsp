@@ -160,16 +160,17 @@ bitflags! {
     }
 }
 
+/// Fixed length, null-terminated string
 #[derive(Debug, Clone)]
-pub struct Name(ArrayString<64>);
+pub struct FixedString<const LEN: usize>(ArrayString<LEN>);
 
-impl Display for Name {
+impl<const LEN: usize> Display for FixedString<LEN> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Display::fmt(&self.0, f)
     }
 }
 
-impl BinRead for Name {
+impl<const LEN: usize> BinRead for FixedString<LEN> {
     type Args = ();
 
     fn read_options<R: binrw::io::Read + binrw::io::Seek>(
@@ -179,7 +180,7 @@ impl BinRead for Name {
     ) -> BinResult<Self> {
         use std::str;
 
-        let name_buf = <[u8; 64]>::read_options(reader, options, args)?;
+        let name_buf = <[u8; LEN]>::read_options(reader, options, args)?;
 
         let zero_pos =
             name_buf
@@ -190,7 +191,7 @@ impl BinRead for Name {
                     err: Box::new(StringError::NotNullTerminated),
                 })?;
         let name = &name_buf[..zero_pos];
-        Ok(Name(
+        Ok(FixedString(
             ArrayString::from(
                 str::from_utf8(name)
                     .map_err(StringError::NonUTF8)
