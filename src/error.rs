@@ -22,6 +22,8 @@ pub enum BspError {
     IO(#[from] std::io::Error),
     #[error(transparent)]
     String(#[from] StringError),
+    #[error("Malformed field found while parsing: {0:#}")]
+    MalformedData(binrw::Error),
 }
 
 impl From<binrw::Error> for BspError {
@@ -38,7 +40,7 @@ impl From<binrw::Error> for BspError {
                     panic!("unexpected custom error")
                 }
             }
-            e => panic!("unexpected no variable match: {:?}", e),
+            e => BspError::MalformedData(e),
         }
     }
 }
