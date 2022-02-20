@@ -1,5 +1,6 @@
 use crate::*;
 use binrw::BinReaderExt;
+use std::any::type_name;
 use std::borrow::Cow;
 use std::mem::size_of;
 
@@ -44,7 +45,16 @@ impl<R: BinReaderExt + Read> LumpReader<R> {
     where
         T::Args: Default,
     {
-        Ok(self.inner.read_le()?)
+        let start = self.inner.stream_position().unwrap() as usize;
+        let result = self.inner.read_le()?;
+        let end = self.inner.stream_position().unwrap() as usize;
+        debug_assert_eq!(
+            end - start,
+            size_of::<T>(),
+            "Incorrect number of bytes consumed while reading a {}",
+            type_name::<T>()
+        );
+        Ok(result)
     }
 
     pub fn read_visdata(&mut self) -> BspResult<VisData> {

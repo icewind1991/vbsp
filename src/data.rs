@@ -299,6 +299,7 @@ pub struct Leaf {
     pub leaf_face_count: u16,
     pub first_leaf_brush: u16,
     pub leaf_brush_count: u16,
+    #[br(pad_size_to = 4)]
     pub leaf_watter_data_id: i16,
 }
 
