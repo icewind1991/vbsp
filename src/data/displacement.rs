@@ -80,7 +80,7 @@ struct RawDisplacementSubNeighbour {
 
 #[test]
 fn test_sub_neighbour_bytes() {
-    test_read_bytes::<RawDisplacementSubNeighbour>();
+    super::test_read_bytes::<RawDisplacementSubNeighbour>();
 }
 
 #[derive(Debug, Clone)]
@@ -142,7 +142,7 @@ static_assertions::const_assert_eq!(size_of::<DisplacementCornerNeighbour>(), 10
 
 #[test]
 fn test_corner_neighbour_bytes() {
-    test_read_bytes::<DisplacementCornerNeighbour>();
+    super::test_read_bytes::<DisplacementCornerNeighbour>();
 }
 
 #[derive(Debug, Clone, BinRead)]

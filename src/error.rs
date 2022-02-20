@@ -1,11 +1,9 @@
 use crate::data::*;
-use miette::Diagnostic;
 use thiserror::Error;
 
-#[derive(Debug, Error, Diagnostic)]
+#[derive(Debug, Error)]
 pub enum BspError {
     #[error("unexpected magic numbers or version")]
-    #[diagnostic(help("Ensure the loaded file is a valve bsp"))]
     UnexpectedHeader(Header),
     #[error("bsp lump is out of bounds of the bsp file")]
     LumpOutOfBounds(LumpEntry),
@@ -56,7 +54,7 @@ impl From<lzma_rs::error::Error> for BspError {
     }
 }
 
-#[derive(Debug, Error, Diagnostic)]
+#[derive(Debug, Error)]
 pub enum StringError {
     #[error(transparent)]
     NonUTF8(#[from] std::str::Utf8Error),
