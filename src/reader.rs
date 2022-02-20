@@ -31,6 +31,12 @@ impl<R: BinReaderExt + Read> LumpReader<R> {
     where
         F: FnMut(&mut LumpReader<R>) -> BspResult<T>,
     {
+        if self.length % size_of::<T>() != 0 {
+            return Err(BspError::InvalidLumpSize {
+                element_size: size_of::<T>(),
+                lump_size: self.length,
+            });
+        }
         let num_entries = self.length / size_of::<T>();
         let mut entries = Vec::with_capacity(num_entries);
 

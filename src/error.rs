@@ -9,6 +9,11 @@ pub enum BspError {
     UnexpectedHeader(Header),
     #[error("bsp lump is out of bounds of the bsp file")]
     LumpOutOfBounds(LumpEntry),
+    #[error("Invalid lump size, lump size {lump_size} is not a multiple of the element size {element_size}")]
+    InvalidLumpSize {
+        element_size: usize,
+        lump_size: usize,
+    },
     #[error("unexpected length of uncompressed lump, got {got} but expected {expected}")]
     UnexpectedUncompressedLumpSize { got: u32, expected: u32 },
     #[error("error while decompressing lump")]
