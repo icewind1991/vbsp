@@ -232,18 +232,24 @@ impl<'a> Handle<'a, DisplacementInfo> {
 
         corner_positions.rotate_left(start_index);
 
-        let start_corner = corner_positions[0];
         let step_scale = 1.0 / (steps as f32 - 1.0);
-        let x_dir = (corner_positions[3] - corner_positions[0]) * step_scale;
-        let y_dir = (corner_positions[1] - corner_positions[0]) * step_scale;
+        let edge_intervals = [
+            (corner_positions[1] - corner_positions[0]) * step_scale,
+            (corner_positions[2] - corner_positions[3]) * step_scale,
+        ];
 
         Some(
             self.displacement_vertices()
                 .enumerate()
                 .map(move |(i, displacement)| {
-                    let x = (i % steps) as f32;
-                    let y = (i / steps) as f32;
-                    let base_pos = start_corner + (x_dir * x) + (y_dir * y);
+                    let y = (i % steps) as f32;
+                    let x = (i / steps) as f32;
+                    let edge_positions = [
+                        corner_positions[0] + edge_intervals[0] * x,
+                        corner_positions[3] + edge_intervals[1] * x,
+                    ];
+                    let segment_interval = (edge_positions[1] - edge_positions[0]) * step_scale;
+                    let base_pos = edge_positions[0] + (segment_interval * y);
                     base_pos + displacement.displacement()
                 }),
         )
