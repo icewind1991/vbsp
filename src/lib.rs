@@ -8,7 +8,7 @@ use crate::bspfile::LumpType;
 pub use crate::data::TextureFlags;
 pub use crate::data::Vector;
 use crate::data::*;
-use crate::handle::Handle;
+pub use crate::handle::Handle;
 use binrw::io::Cursor;
 use binrw::BinRead;
 use bspfile::BspFile;
@@ -172,6 +172,8 @@ pub struct Bsp {
     pub original_faces: Vec<Face>,
     pub vis_data: VisData,
     pub displacements: Vec<DisplacementInfo>,
+    pub displacement_vertices: Vec<DisplacementVertex>,
+    pub displacement_triangles: Vec<DisplacementTriangle>,
 }
 
 impl Bsp {
@@ -229,6 +231,12 @@ impl Bsp {
         let displacements = bsp_file
             .lump_reader(LumpType::DisplacementInfo)?
             .read_vec(|r| r.read())?;
+        let displacement_vertices = bsp_file
+            .lump_reader(LumpType::DisplacementVertices)?
+            .read_vec(|r| r.read())?;
+        let displacement_triangles = bsp_file
+            .lump_reader(LumpType::DisplacementTris)?
+            .read_vec(|r| r.read())?;
 
         Ok({
             Bsp {
@@ -251,6 +259,8 @@ impl Bsp {
                 original_faces,
                 vis_data,
                 displacements,
+                displacement_vertices,
+                displacement_triangles,
             }
         })
     }
@@ -275,6 +285,18 @@ impl Bsp {
         self.displacements
             .get(n)
             .map(|displacement| Handle::new(self, displacement))
+    }
+
+    pub fn displacement_vertex(&self, n: usize) -> Option<Handle<'_, DisplacementVertex>> {
+        self.displacement_vertices
+            .get(n)
+            .map(|vert| Handle::new(self, vert))
+    }
+
+    pub fn displacement_triangle(&self, n: usize) -> Option<Handle<'_, DisplacementTriangle>> {
+        self.displacement_triangles
+            .get(n)
+            .map(|tri| Handle::new(self, tri))
     }
 
     /// Get the root node of the bsp

@@ -6,11 +6,90 @@ use binrw::{BinRead, BinResult, ReadOptions};
 use bitflags::bitflags;
 use bv::BitVec;
 use num_enum::TryFromPrimitive;
+use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::io::{Read, Seek};
 use std::mem::{align_of, size_of};
-use std::ops::{Add, Index};
+use std::ops::Index;
+use std::ops::{Add, Mul, Sub};
+
+#[derive(Debug, Clone, Copy, BinRead)]
+pub struct Vector {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
+
+impl Vector {
+    pub fn iter(&self) -> impl Iterator<Item = f32> {
+        [self.x, self.y, self.z].into_iter()
+    }
+
+    pub fn length_squared(&self) -> f32 {
+        self.x.powf(2.0) + self.y.powf(2.0) + self.z.powf(2.0)
+    }
+}
+
+impl Add<Vector> for Vector {
+    type Output = Vector;
+
+    fn add(self, rhs: Vector) -> Self::Output {
+        Vector {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            z: self.z + rhs.z,
+        }
+    }
+}
+
+impl Sub<Vector> for Vector {
+    type Output = Vector;
+
+    fn sub(self, rhs: Vector) -> Self::Output {
+        Vector {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+            z: self.z - rhs.z,
+        }
+    }
+}
+
+impl Mul<f32> for Vector {
+    type Output = Vector;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Vector {
+            x: self.x * rhs,
+            y: self.y * rhs,
+            z: self.z * rhs,
+        }
+    }
+}
+
+impl PartialEq for Vector {
+    fn eq(&self, other: &Self) -> bool {
+        self.x == other.x && self.y == other.y && self.z == other.z
+    }
+}
+
+impl PartialOrd for Vector {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.length_squared().partial_cmp(&other.length_squared())
+    }
+}
+
+impl From<Vector> for [f32; 3] {
+    fn from(vector: Vector) -> Self {
+        [vector.x, vector.y, vector.z]
+    }
+}
+
+impl From<&Vector> for [f32; 3] {
+    fn from(vector: &Vector) -> Self {
+        [vector.x, vector.y, vector.z]
+    }
+}
 
 #[cfg(test)]
 fn test_read_bytes<T: BinRead>()
@@ -231,43 +310,6 @@ impl<const LEN: usize> BinRead for FixedString<LEN> {
     }
 }
 
-#[derive(Debug, Clone, Copy, BinRead)]
-pub struct Vector {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
-}
-
-impl Vector {
-    pub fn iter(&self) -> impl Iterator<Item = f32> {
-        [self.x, self.y, self.z].into_iter()
-    }
-}
-
-impl Add<Vector> for Vector {
-    type Output = Vector;
-
-    fn add(self, rhs: Vector) -> Self::Output {
-        Vector {
-            x: self.x + rhs.x,
-            y: self.y + rhs.y,
-            z: self.z + rhs.z,
-        }
-    }
-}
-
-impl From<Vector> for [f32; 3] {
-    fn from(vector: Vector) -> Self {
-        [vector.x, vector.y, vector.z]
-    }
-}
-
-impl From<&Vector> for [f32; 3] {
-    fn from(vector: &Vector) -> Self {
-        [vector.x, vector.y, vector.z]
-    }
-}
-
 #[derive(Debug, Clone, BinRead)]
 pub struct TextureInfo {
     pub texture_scale: [f32; 4],
@@ -323,7 +365,7 @@ pub struct Leaf {
     pub leaf_face_count: u16,
     pub first_leaf_brush: u16,
     pub leaf_brush_count: u16,
-    #[br(align_after = align_of::<Leaf>())]
+    #[br(align_after = align_of::< Leaf > ())]
     pub leaf_watter_data_id: i16,
 }
 
@@ -427,6 +469,7 @@ pub struct Edge {
     pub end_index: u16,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum EdgeDirection {
     FirstToLast,
     LastToFirst,
@@ -537,6 +580,16 @@ pub struct DisplacementInfo {
     pub allowed_vertices: [u32; 10],
 }
 
+impl DisplacementInfo {
+    pub fn vertex_count(&self) -> i32 {
+        (2i32.pow(self.power as u32) + 1).pow(2)
+    }
+
+    pub fn triangle_count(&self) -> i32 {
+        2 * 2i32.pow(self.power as u32).pow(2)
+    }
+}
+
 #[test]
 fn test_displacement_bytes() {
     test_read_bytes::<DisplacementInfo>();
@@ -572,7 +625,7 @@ struct RawDisplacementSubNeighbour {
     neighbour_index: u16,
     neighbour_orientation: u8,
     span: u8,
-    #[br(align_after = align_of::<DisplacementSubNeighbour>())]
+    #[br(align_after = align_of::< DisplacementSubNeighbour > ())]
     neighbour_span: u8,
 }
 
@@ -632,7 +685,7 @@ pub enum NeighbourOrientation {
 #[derive(Debug, Clone, BinRead)]
 pub struct DisplacementCornerNeighbour {
     pub neighbours: [u16; 4],
-    #[br(align_after = align_of::<DisplacementCornerNeighbour>())]
+    #[br(align_after = align_of::< DisplacementCornerNeighbour > ())]
     pub neighbour_count: u8,
 }
 
@@ -641,4 +694,33 @@ static_assertions::const_assert_eq!(size_of::<DisplacementCornerNeighbour>(), 10
 #[test]
 fn test_corner_neighbour_bytes() {
     test_read_bytes::<DisplacementCornerNeighbour>();
+}
+
+#[derive(Debug, Clone, BinRead)]
+pub struct DisplacementVertex {
+    pub vector: Vector,
+    pub distance: f32,
+    pub alpha: f32,
+}
+
+impl DisplacementVertex {
+    pub fn displacement(&self) -> Vector {
+        self.vector * self.distance
+    }
+}
+
+#[derive(Debug, Clone, BinRead)]
+pub struct DisplacementTriangle {
+    pub tags: DisplacementTriangleFlags,
+}
+
+bitflags! {
+    #[derive(BinRead)]
+    pub struct DisplacementTriangleFlags: u8 {
+        const SURFACE =       0x01;
+        const WALKABLE =      0x02;
+        const BULDABLE =      0x04;
+        const SURFACE_PROP1 = 0x08;
+        const SURFACE_PROP2 = 0x10;
+    }
 }

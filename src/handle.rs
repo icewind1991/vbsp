@@ -1,5 +1,6 @@
 use crate::data::*;
 use crate::Bsp;
+use arrayvec::ArrayVec;
 use std::ops::Deref;
 
 /// A handle represents a data structure in the bsp file and the bsp file containing it.
@@ -97,6 +98,10 @@ impl<'a> Handle<'a, Face> {
             })
     }
 
+    pub fn edge_direction(&self) -> EdgeDirection {
+        self.bsp.surface_edges[self.first_edge as usize].direction()
+    }
+
     /// Check if the face is flagged as visible
     pub fn is_visible(&self) -> bool {
         self.texture()
@@ -130,6 +135,10 @@ impl<'a> Handle<'a, Face> {
             b = c;
             points
         })
+    }
+
+    pub fn displacement(&self) -> Option<Handle<'a, DisplacementInfo>> {
+        self.bsp.displacement(self.displacement_info as usize)
     }
 }
 
@@ -195,6 +204,70 @@ impl<'a> Handle<'a, DisplacementInfo> {
             .flat_map(|corner| &corner.neighbours[0..corner.neighbour_count.min(4) as usize])
             .copied()
             .filter_map(|id| self.bsp.displacement(id as usize))
+    }
+
+    pub fn displacement_vertices(&self) -> impl Iterator<Item = Handle<'a, DisplacementVertex>> {
+        (self.displacement_vertex_start..(self.displacement_vertex_start + self.vertex_count()))
+            .flat_map(|i| self.bsp.displacement_vertex(i as usize))
+    }
+
+    pub fn face(&self) -> Option<Handle<'a, Face>> {
+        self.bsp.face(self.map_face as usize)
+    }
+
+    pub fn displaced_vertices(&self) -> Option<impl Iterator<Item = Vector> + 'a> {
+        let face = self.face()?;
+        let steps = 2usize.pow(self.power as u32) + 1;
+
+        let mut corner_positions: ArrayVec<_, 4> = face.vertices().map(|v| v.position).collect();
+
+        let start_index = corner_positions
+            .iter()
+            .copied()
+            .map(|point| point - self.start_position)
+            .enumerate()
+            .min_by(|(_a, a_pos), (_b, b_pos)| (a_pos).partial_cmp(b_pos).unwrap())
+            .map(|(i, _pos)| i)
+            .unwrap();
+
+        corner_positions.rotate_left(start_index);
+
+        let start_corner = corner_positions[0];
+        let x_dir = corner_positions[3] - corner_positions[0];
+        let y_dir = corner_positions[1] - corner_positions[0];
+
+        Some(
+            self.displacement_vertices()
+                .enumerate()
+                .map(move |(i, displacement)| {
+                    let x = (i % steps) as f32 / (steps - 1) as f32;
+                    let y = (i / steps) as f32 / (steps - 1) as f32;
+                    let base_pos = start_corner + (x_dir * x) + (y_dir * y);
+                    base_pos + displacement.displacement()
+                }),
+        )
+    }
+
+    pub fn triangulated_displaced_vertices(&self) -> Option<impl Iterator<Item = Vector> + 'a> {
+        let vertices: Vec<_> = self.displaced_vertices()?.collect();
+        let steps = 2usize.pow(self.power as u32);
+
+        let index = move |x: usize, y: usize| y * (steps + 1) + x;
+
+        Some(
+            (0..steps)
+                .flat_map(move |x| (0..steps).map(move |y| (x, y)))
+                .flat_map(move |(x, y)| {
+                    [
+                        vertices[index(x, y)],
+                        vertices[index(x + 1, y)],
+                        vertices[index(x, y + 1)],
+                        vertices[index(x, y + 1)],
+                        vertices[index(x + 1, y + 1)],
+                        vertices[index(x + 1, y)],
+                    ]
+                }),
+        )
     }
 }
 
