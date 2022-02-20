@@ -19,6 +19,7 @@ lzma-rs = "0.2.0"
 binrw = "0.8.0"
 static_assertions = "1.1.0"
 miette = "3.2.0"
+num_enum = "0.5.6"
 
 [dev-dependencies]
 obj = "0.10"
@@ -27,3 +28,6 @@ miette = { version = "3.2.0", features = ["fancy"] }
 
 [features]
 bench = []
+
+[profile.dev]
+opt-level = 2
