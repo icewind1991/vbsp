@@ -324,7 +324,57 @@ static_assertions::const_assert_eq!(size_of::<Model>(), 48);
 pub struct Brush {
     pub brush_side: u32,
     pub num_brush_sides: u32,
-    pub texture: u32,
+    pub flags: BrushFlags,
+}
+
+impl Brush {
+    pub fn is_visible(&self) -> bool {
+        self.flags.intersects(
+            BrushFlags::SOLID
+                | BrushFlags::GRATE
+                | BrushFlags::OPAQUE
+                | BrushFlags::TESTFOGVOLUME
+                | BrushFlags::TRANSLUCENT,
+        )
+    }
+}
+
+bitflags! {
+    #[derive(BinRead)]
+    pub struct BrushFlags: u32 {
+        const EMPTY =       	        0; // 	No contents
+        const SOLID =       	        0x1; // 	an eye is never valid in a solid
+        const WINDOW =      	        0x2; // 	translucent, but not watery (glass)
+        const AUX =         	        0x4;
+        const GRATE =       	        0x8; // 	alpha-tested "grate" textures. Bullets/sight pass through, but solids don't
+        const SLIME =       	        0x10;
+        const WATER =       	        0x20;
+        const MIST =        	        0x40;
+        const OPAQUE =      	        0x80; // 	block AI line of sight
+        const TESTFOGVOLUME =          0x100; // 	things that cannot be seen through (may be non-solid though)
+        const UNUSED =      	        0x200; // 	unused
+        const UNUSED6 =                0x400; // 	unused
+        const TEAM1 =       	        0x800; // 	per team contents used to differentiate collisions between players and objects on different teams
+        const TEAM2 =       	        0x1000;
+        const IGNORE_NODRAW_OPAQUE =   0x2000; // 	ignore CONTENTS_OPAQUE on surfaces that have SURF_NODRAW
+        const MOVEABLE =               0x4000; // 	hits entities which are MOVETYPE_PUSH (doors, plats, etc.)
+        const AREAPORTAL =             0x8000; // 	remaining contents are non-visible, and don't eat brushes
+        const PLAYERCLIP =             0x10000;
+        const MONSTERCLIP =            0x20000;
+        const CURRENT_0 =              0x40000; // 	currents can be added to any other contents, and may be mixed
+        const CURRENT_90 =             0x80000;
+        const CURRENT_180 =            0x100000;
+        const CURRENT_270 =            0x200000;
+        const CURRENT_UP =             0x400000;
+        const CURRENT_DOWN =           0x800000;
+        const ORIGIN =      	        0x1000000; // 	removed before bsping an entity
+        const MONSTER =                0x2000000; // 	should never be on a brush, only in game
+        const DEBRIS =      	        0x4000000;
+        const DETAIL =      	        0x8000000; // 	brushes to be added after vis leafs
+        const TRANSLUCENT =            0x10000000; // 	auto set if any surface has trans
+        const LADDER =      	        0x20000000;
+        const HITBOX =      	        0x40000000; // 	use accurate hitboxes on trace
+    }
 }
 
 #[derive(Debug, Clone, BinRead)]

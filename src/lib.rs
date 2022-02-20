@@ -423,7 +423,6 @@ impl<'a> Handle<'a, Face> {
                         | TextureFlags::SKY2D
                         | TextureFlags::SKY
                         | TextureFlags::WARP
-                        | TextureFlags::TRANS
                         | TextureFlags::TRIGGER
                         | TextureFlags::HINT
                         | TextureFlags::SKIP
