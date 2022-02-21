@@ -51,6 +51,12 @@ pub struct DisplacementNeighbour {
     pub sub_neighbours: [Option<DisplacementSubNeighbour>; 2],
 }
 
+impl DisplacementNeighbour {
+    pub fn iter(&self) -> impl Iterator<Item = &DisplacementSubNeighbour> {
+        self.sub_neighbours.iter().filter_map(Option::as_ref)
+    }
+}
+
 impl BinRead for DisplacementNeighbour {
     type Args = ();
 
@@ -133,9 +139,18 @@ pub enum NeighbourOrientation {
 
 #[derive(Debug, Clone, BinRead)]
 pub struct DisplacementCornerNeighbour {
-    pub neighbours: [u16; 4],
+    neighbours: [u16; 4],
     #[br(align_after = align_of::< DisplacementCornerNeighbour > ())]
-    pub neighbour_count: u8,
+    neighbour_count: u8,
+}
+
+impl DisplacementCornerNeighbour {
+    pub fn neighbours(&self) -> impl Iterator<Item = u16> + '_ {
+        self.neighbours
+            .iter()
+            .copied()
+            .take(self.neighbour_count as usize)
+    }
 }
 
 static_assertions::const_assert_eq!(size_of::<DisplacementCornerNeighbour>(), 10);

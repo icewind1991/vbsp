@@ -22,6 +22,8 @@ pub enum BspError {
     String(#[from] StringError),
     #[error("Malformed field found while parsing: {0:#}")]
     MalformedData(binrw::Error),
+    #[error("bsp file is well-formed but contains invalid data")]
+    Validation(#[from] ValidationError),
 }
 
 impl From<binrw::Error> for BspError {
@@ -60,4 +62,17 @@ pub enum StringError {
     NonUTF8(#[from] std::str::Utf8Error),
     #[error("String is not null-terminated")]
     NotNullTerminated,
+}
+
+#[derive(Debug, Error)]
+pub enum ValidationError {
+    #[error(
+        "A {source_} indexes into {target} but the index {index} is out of range of the size {size}"
+    )]
+    ReferenceOutOfRange {
+        source_: &'static str,
+        target: &'static str,
+        index: i64,
+        size: usize,
+    },
 }

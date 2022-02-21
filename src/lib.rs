@@ -8,6 +8,7 @@ use crate::bspfile::LumpType;
 pub use crate::data::TextureFlags;
 pub use crate::data::Vector;
 use crate::data::*;
+use crate::error::ValidationError;
 pub use crate::handle::Handle;
 use binrw::io::Cursor;
 use binrw::BinRead;
@@ -105,7 +106,7 @@ fn test_leaf_clusters() {
         .clusters()
         .map(|cluster| cluster.map(|leaf| leaf.contents).collect())
         .collect();
-    assert_eq!(vec![vec![0, 1], vec![2], vec![3, 4],], clustered);
+    assert_eq!(vec![vec![0, 1], vec![2], vec![3, 4]], clustered);
 }
 
 impl From<Vec<Leaf>> for Leaves {
@@ -238,31 +239,31 @@ impl Bsp {
             .lump_reader(LumpType::DisplacementTris)?
             .read_vec(|r| r.read())?;
 
-        Ok({
-            Bsp {
-                header: bsp_file.header().clone(),
-                entities,
-                textures_data,
-                textures_info,
-                planes,
-                nodes,
-                leaves,
-                leaf_faces,
-                leaf_brushes,
-                models,
-                brushes,
-                brush_sides,
-                vertices,
-                edges,
-                surface_edges,
-                faces,
-                original_faces,
-                vis_data,
-                displacements,
-                displacement_vertices,
-                displacement_triangles,
-            }
-        })
+        let bsp = Bsp {
+            header: bsp_file.header().clone(),
+            entities,
+            textures_data,
+            textures_info,
+            planes,
+            nodes,
+            leaves,
+            leaf_faces,
+            leaf_brushes,
+            models,
+            brushes,
+            brush_sides,
+            vertices,
+            edges,
+            surface_edges,
+            faces,
+            original_faces,
+            vis_data,
+            displacements,
+            displacement_vertices,
+            displacement_triangles,
+        };
+        bsp.validate()?;
+        Ok(bsp)
     }
 
     pub fn leaf(&self, n: usize) -> Option<Handle<'_, Leaf>> {
@@ -287,16 +288,10 @@ impl Bsp {
             .map(|displacement| Handle::new(self, displacement))
     }
 
-    pub fn displacement_vertex(&self, n: usize) -> Option<Handle<'_, DisplacementVertex>> {
+    fn displacement_vertex(&self, n: usize) -> Option<Handle<'_, DisplacementVertex>> {
         self.displacement_vertices
             .get(n)
             .map(|vert| Handle::new(self, vert))
-    }
-
-    pub fn displacement_triangle(&self, n: usize) -> Option<Handle<'_, DisplacementTriangle>> {
-        self.displacement_triangles
-            .get(n)
-            .map(|tri| Handle::new(self, tri))
     }
 
     /// Get the root node of the bsp
@@ -336,6 +331,93 @@ impl Bsp {
     /// Get all faces stored in the bsp
     pub fn original_faces(&self) -> impl Iterator<Item = Handle<Face>> {
         self.faces.iter().map(move |face| Handle::new(self, face))
+    }
+
+    fn validate(&self) -> BspResult<()> {
+        self.validate_indexes(
+            self.faces
+                .iter()
+                .filter_map(|face| face.displacement_index()),
+            &self.displacements,
+            "face",
+            "displacement",
+        )?;
+        self.validate_indexes(
+            self.displacements
+                .iter()
+                .map(|displacement| displacement.map_face),
+            &self.faces,
+            "displacement",
+            "face",
+        )?;
+        self.validate_indexes(
+            self.faces
+                .iter()
+                .map(|face| face.first_edge + face.num_edges as i32 - 1),
+            &self.surface_edges,
+            "face",
+            "surface_edge",
+        )?;
+        self.validate_indexes(
+            self.surface_edges.iter().map(|edge| edge.edge_index()),
+            &self.edges,
+            "surface_edge",
+            "edge",
+        )?;
+        self.validate_indexes(
+            self.edges
+                .iter()
+                .flat_map(|edge| [edge.start_index, edge.end_index]),
+            &self.vertices,
+            "edge",
+            "vertex",
+        )?;
+        self.validate_indexes(
+            self.displacements
+                .iter()
+                .flat_map(|displacement| &displacement.corner_neighbours)
+                .flat_map(|corner| corner.neighbours()),
+            &self.displacements,
+            "displacement",
+            "displacement",
+        )?;
+        self.validate_indexes(
+            self.displacements
+                .iter()
+                .flat_map(|displacement| &displacement.edge_neighbours)
+                .flat_map(|edge| edge.iter())
+                .map(|sub| sub.neighbour_index),
+            &self.displacements,
+            "displacement",
+            "displacement",
+        )?;
+
+        Ok(())
+    }
+
+    fn validate_indexes<
+        'a,
+        Index: TryInto<usize> + Into<i64> + Copy + Ord + Default,
+        Indexes: Iterator<Item = Index>,
+        T: 'a,
+    >(
+        &'a self,
+        indexes: Indexes,
+        list: &[T],
+        source: &'static str,
+        target: &'static str,
+    ) -> BspResult<()> {
+        let max = indexes.max().unwrap_or_default();
+        max.try_into()
+            .ok()
+            .and_then(|index| list.get(index))
+            .ok_or_else(|| ValidationError::ReferenceOutOfRange {
+                source_: source,
+                target,
+                index: max.into(),
+                size: list.len(),
+            })?;
+        Ok(())
     }
 }
 

@@ -405,8 +405,8 @@ pub struct SurfaceEdge {
 }
 
 impl SurfaceEdge {
-    pub fn edge_index(&self) -> usize {
-        self.edge.abs() as usize
+    pub fn edge_index(&self) -> u32 {
+        self.edge.abs() as u32
     }
 
     pub fn direction(&self) -> EdgeDirection {
@@ -437,6 +437,12 @@ pub struct Face {
     pub primitive_count: u16,
     pub first_primitive_index: u16,
     pub smoothing_groups: u32,
+}
+
+impl Face {
+    pub fn displacement_index(&self) -> Option<i16> {
+        (self.displacement_info >= 0).then(|| self.displacement_info)
+    }
 }
 
 static_assertions::const_assert_eq!(size_of::<Face>(), 56);

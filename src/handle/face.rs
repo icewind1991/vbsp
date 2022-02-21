@@ -29,7 +29,7 @@ impl<'a> Handle<'a, Face> {
             .flat_map(move |surface_edge| bsp.surface_edges.get(surface_edge as usize))
             .flat_map(move |surface_edge| {
                 bsp.edges
-                    .get(surface_edge.edge_index())
+                    .get(surface_edge.edge_index() as usize)
                     .map(|edge| (edge, surface_edge.direction()))
             })
             .map(|(edge, direction)| match direction {

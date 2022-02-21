@@ -16,8 +16,7 @@ impl<'a> Handle<'a, DisplacementInfo> {
         self.data
             .corner_neighbours
             .iter()
-            .flat_map(|corner| &corner.neighbours[0..corner.neighbour_count.min(4) as usize])
-            .copied()
+            .flat_map(|corner| corner.neighbours())
             .filter_map(|id| self.bsp.displacement(id as usize))
     }
 
