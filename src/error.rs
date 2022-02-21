@@ -1,4 +1,5 @@
 use crate::data::*;
+use std::num::{ParseFloatError, ParseIntError};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -75,4 +76,16 @@ pub enum ValidationError {
         index: i64,
         size: usize,
     },
+}
+
+#[derive(Debug, Error)]
+pub enum EntityParseError {
+    #[error("no such property: {0}")]
+    NoSuchProperty(&'static str),
+    #[error("wrong number of elements")]
+    ElementCount,
+    #[error(transparent)]
+    Float(#[from] ParseFloatError),
+    #[error(transparent)]
+    Int(#[from] ParseIntError),
 }

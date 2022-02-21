@@ -1,7 +1,9 @@
 mod displacement;
+mod entity;
 mod vector;
 
 pub use self::displacement::*;
+pub use self::entity::*;
 pub use self::vector::*;
 use crate::bspfile::LumpType;
 use crate::StringError;
@@ -71,98 +73,6 @@ pub struct LumpEntry {
 #[derive(Debug, Clone, BinRead)]
 pub struct LeafFace {
     pub face: u16,
-}
-
-#[derive(Clone)]
-pub struct Entities {
-    pub entities: String,
-}
-
-impl fmt::Debug for Entities {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        #[derive(Debug)]
-        struct Entities<'a> {
-            #[allow(dead_code)]
-            entities: Vec<Entity<'a>>,
-        }
-
-        Entities {
-            entities: self.iter().collect(),
-        }
-        .fmt(f)
-    }
-}
-
-impl Entities {
-    pub fn iter(&self) -> impl Iterator<Item = Entity<'_>> {
-        struct Iter<'a> {
-            buf: &'a str,
-        }
-
-        impl<'a> Iterator for Iter<'a> {
-            type Item = Entity<'a>;
-
-            fn next(&mut self) -> Option<Self::Item> {
-                let start = self.buf.find('{')? + 1;
-                let end = start + self.buf[start..].find('}')?;
-
-                let out = &self.buf[start..end];
-
-                self.buf = &self.buf[end + 1..];
-
-                Some(Entity { buf: out })
-            }
-        }
-
-        Iter {
-            buf: &self.entities,
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct Entity<'a> {
-    buf: &'a str,
-}
-
-impl fmt::Debug for Entity<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use std::collections::HashMap;
-
-        self.properties().collect::<HashMap<_, _>>().fmt(f)
-    }
-}
-
-impl<'a> Entity<'a> {
-    pub fn properties(&self) -> impl Iterator<Item = (&'a str, &'a str)> {
-        struct Iter<'a> {
-            buf: &'a str,
-        }
-
-        impl<'a> Iterator for Iter<'a> {
-            type Item = (&'a str, &'a str);
-
-            fn next(&mut self) -> Option<Self::Item> {
-                let start = self.buf.find('"')? + 1;
-                let end = start + self.buf[start..].find('"')?;
-
-                let key = &self.buf[start..end];
-
-                let rest = &self.buf[end + 1..];
-
-                let start = rest.find('"')? + 1;
-                let end = start + rest[start..].find('"')?;
-
-                let value = &rest[start..end];
-
-                self.buf = &rest[end + 1..];
-
-                Some((key, value))
-            }
-        }
-
-        Iter { buf: self.buf }
-    }
 }
 
 bitflags! {

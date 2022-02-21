@@ -1,7 +1,9 @@
+use crate::error::EntityParseError;
 use binrw::BinRead;
 use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::ops::{Add, Mul, Sub};
+use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, BinRead)]
 pub struct Vector {
@@ -74,8 +76,30 @@ impl From<Vector> for [f32; 3] {
     }
 }
 
+impl From<[f32; 3]> for Vector {
+    fn from(vector: [f32; 3]) -> Self {
+        Vector {
+            x: vector[0],
+            y: vector[1],
+            z: vector[2],
+        }
+    }
+}
+
 impl From<&Vector> for [f32; 3] {
     fn from(vector: &Vector) -> Self {
         [vector.x, vector.y, vector.z]
+    }
+}
+
+impl FromStr for Vector {
+    type Err = EntityParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut floats = s.split(" ").map(f32::from_str);
+        let x = floats.next().ok_or(EntityParseError::ElementCount)??;
+        let y = floats.next().ok_or(EntityParseError::ElementCount)??;
+        let z = floats.next().ok_or(EntityParseError::ElementCount)??;
+        Ok(Vector { x, y, z })
     }
 }
