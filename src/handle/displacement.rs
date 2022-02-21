@@ -1,0 +1,100 @@
+use super::Handle;
+use crate::data::*;
+use arrayvec::ArrayVec;
+
+impl<'a> Handle<'a, DisplacementInfo> {
+    pub fn edge_neighbours(&self) -> impl Iterator<Item = Handle<'a, DisplacementSubNeighbour>> {
+        self.data
+            .edge_neighbours
+            .iter()
+            .flat_map(|edge| &edge.sub_neighbours)
+            .filter_map(|sub| sub.as_ref())
+            .map(|sub| Handle::new(self.bsp, sub))
+    }
+
+    pub fn corner_neighbours(&self) -> impl Iterator<Item = Handle<'a, DisplacementInfo>> {
+        self.data
+            .corner_neighbours
+            .iter()
+            .flat_map(|corner| &corner.neighbours[0..corner.neighbour_count.min(4) as usize])
+            .copied()
+            .filter_map(|id| self.bsp.displacement(id as usize))
+    }
+
+    pub fn displacement_vertices(&self) -> impl Iterator<Item = Handle<'a, DisplacementVertex>> {
+        (self.displacement_vertex_start..(self.displacement_vertex_start + self.vertex_count()))
+            .flat_map(|i| self.bsp.displacement_vertex(i as usize))
+    }
+
+    pub fn face(&self) -> Option<Handle<'a, Face>> {
+        self.bsp.face(self.map_face as usize)
+    }
+
+    pub fn displaced_vertices(&self) -> Option<impl Iterator<Item = Vector> + 'a> {
+        let face = self.face()?;
+        let steps = 2usize.pow(self.power as u32) + 1;
+
+        let mut corner_positions: ArrayVec<_, 4> = face.vertices().map(|v| v.position).collect();
+
+        let start_index = corner_positions
+            .iter()
+            .copied()
+            .map(|point| point - self.start_position)
+            .enumerate()
+            .min_by(|(_a, a_pos), (_b, b_pos)| (a_pos).partial_cmp(b_pos).unwrap())
+            .map(|(i, _pos)| i)
+            .unwrap();
+
+        corner_positions.rotate_left(start_index);
+
+        let step_scale = 1.0 / (steps as f32 - 1.0);
+        let edge_intervals = [
+            (corner_positions[1] - corner_positions[0]) * step_scale,
+            (corner_positions[2] - corner_positions[3]) * step_scale,
+        ];
+
+        Some(
+            self.displacement_vertices()
+                .enumerate()
+                .map(move |(i, displacement)| {
+                    let y = (i % steps) as f32;
+                    let x = (i / steps) as f32;
+                    let edge_positions = [
+                        corner_positions[0] + edge_intervals[0] * x,
+                        corner_positions[3] + edge_intervals[1] * x,
+                    ];
+                    let segment_interval = (edge_positions[1] - edge_positions[0]) * step_scale;
+                    let base_pos = edge_positions[0] + (segment_interval * y);
+                    base_pos + displacement.displacement()
+                }),
+        )
+    }
+
+    pub fn triangulated_displaced_vertices(&self) -> Option<impl Iterator<Item = Vector> + 'a> {
+        let vertices: Vec<_> = self.displaced_vertices()?.collect();
+        let steps = 2usize.pow(self.power as u32);
+
+        let index = move |x: usize, y: usize| y * (steps + 1) + x;
+
+        Some(
+            (0..steps)
+                .flat_map(move |x| (0..steps).map(move |y| (x, y)))
+                .flat_map(move |(x, y)| {
+                    [
+                        vertices[index(x, y)],
+                        vertices[index(x + 1, y)],
+                        vertices[index(x, y + 1)],
+                        vertices[index(x, y + 1)],
+                        vertices[index(x + 1, y + 1)],
+                        vertices[index(x + 1, y)],
+                    ]
+                }),
+        )
+    }
+}
+
+impl<'a> Handle<'a, DisplacementSubNeighbour> {
+    pub fn displacement(&self) -> Option<Handle<'a, DisplacementInfo>> {
+        self.bsp.displacement(self.data.neighbour_index as usize)
+    }
+}
