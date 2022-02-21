@@ -56,17 +56,20 @@ impl<'a> Handle<'a, Model> {
 
 impl<'a> Handle<'a, TextureInfo> {
     /// Get the texture data references by the texture
-    pub fn texture(&self) -> Option<&TextureData> {
-        self.bsp
+    pub fn texture(&self) -> Handle<'a, TextureData> {
+        let texture = self
+            .bsp
             .textures_data
             .get(self.data.texture_data_index as usize)
+            .unwrap();
+        Handle::new(self.bsp, texture)
     }
 }
 
 impl Handle<'_, Node> {
     /// Get the plane splitting this node
-    pub fn plane(&self) -> Option<Handle<'_, Plane>> {
-        self.bsp.plane(self.plane_index as _)
+    pub fn plane(&self) -> Handle<'_, Plane> {
+        self.bsp.plane(self.plane_index as _).unwrap()
     }
 }
 

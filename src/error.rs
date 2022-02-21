@@ -76,6 +76,8 @@ pub enum ValidationError {
         index: i64,
         size: usize,
     },
+    #[error("bsp contains no root node")]
+    NoRootNode,
 }
 
 #[derive(Debug, Error)]

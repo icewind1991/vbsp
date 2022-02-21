@@ -3,7 +3,7 @@ use crate::data::*;
 
 impl<'a> Handle<'a, Face> {
     /// Get the texture of the face
-    pub fn texture(&self) -> Option<Handle<TextureInfo>> {
+    pub fn texture(&self) -> Handle<TextureInfo> {
         self.bsp
             .textures_info
             .get(self.texture_info as usize)
@@ -11,6 +11,7 @@ impl<'a> Handle<'a, Face> {
                 bsp: self.bsp,
                 data: texture_info,
             })
+            .unwrap()
     }
 
     /// Get all vertices making up the face
@@ -44,21 +45,18 @@ impl<'a> Handle<'a, Face> {
 
     /// Check if the face is flagged as visible
     pub fn is_visible(&self) -> bool {
-        self.texture()
-            .map(|texture| {
-                !texture.flags.intersects(
-                    TextureFlags::LIGHT
-                        | TextureFlags::SKY2D
-                        | TextureFlags::SKY
-                        | TextureFlags::WARP
-                        | TextureFlags::TRIGGER
-                        | TextureFlags::HINT
-                        | TextureFlags::SKIP
-                        | TextureFlags::NODRAW
-                        | TextureFlags::HITBOX,
-                )
-            })
-            .unwrap_or_default()
+        let texture = self.texture();
+        !texture.flags.intersects(
+            TextureFlags::LIGHT
+                | TextureFlags::SKY2D
+                | TextureFlags::SKY
+                | TextureFlags::WARP
+                | TextureFlags::TRIGGER
+                | TextureFlags::HINT
+                | TextureFlags::SKIP
+                | TextureFlags::NODRAW
+                | TextureFlags::HITBOX,
+        )
     }
 
     /// Triangulate the face

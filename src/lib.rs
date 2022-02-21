@@ -295,8 +295,8 @@ impl Bsp {
     }
 
     /// Get the root node of the bsp
-    pub fn root_node(&self) -> Option<Handle<'_, Node>> {
-        self.node(0)
+    pub fn root_node(&self) -> Handle<'_, Node> {
+        self.node(0).unwrap()
     }
 
     /// Get all models stored in the bsp
@@ -305,11 +305,11 @@ impl Bsp {
     }
 
     /// Find a leaf for a specific position
-    pub fn leaf_at(&self, point: Vector) -> Option<Handle<'_, Leaf>> {
-        let mut current = self.root_node()?;
+    pub fn leaf_at(&self, point: Vector) -> Handle<'_, Leaf> {
+        let mut current = self.root_node();
 
         loop {
-            let plane = current.plane()?;
+            let plane = current.plane();
             let dot: f32 = point
                 .iter()
                 .zip(plane.normal.iter())
@@ -321,9 +321,9 @@ impl Bsp {
             let next = if dot < plane.dist { back } else { front };
 
             if next < 0 {
-                return self.leaf((!next) as usize);
+                return self.leaf((!next) as usize).unwrap();
             } else {
-                current = self.node(next as usize)?;
+                current = self.node(next as usize).unwrap();
             }
         }
     }
@@ -391,6 +391,48 @@ impl Bsp {
             "displacement",
             "displacement",
         )?;
+        self.validate_indexes(
+            self.faces.iter().map(|face| face.texture_info),
+            &self.textures_info,
+            "face",
+            "texture_info",
+        )?;
+        self.validate_indexes(
+            self.textures_info
+                .iter()
+                .map(|texture| texture.texture_data_index),
+            &self.textures_data,
+            "texture_info",
+            "texture_data",
+        )?;
+        self.validate_indexes(
+            self.nodes.iter().map(|node| node.plane_index),
+            &self.planes,
+            "node",
+            "plane",
+        )?;
+        self.validate_indexes(
+            self.nodes
+                .iter()
+                .flat_map(|node| node.children)
+                .filter_map(|index| (index >= 0).then(|| index)),
+            &self.nodes,
+            "node",
+            "node",
+        )?;
+        self.validate_indexes(
+            self.nodes
+                .iter()
+                .flat_map(|node| node.children)
+                .filter_map(|index| (index < 0).then(|| !index)),
+            &self.leaves,
+            "node",
+            "leaf",
+        )?;
+
+        if self.nodes.is_empty() {
+            return Err(ValidationError::NoRootNode.into());
+        }
 
         Ok(())
     }
