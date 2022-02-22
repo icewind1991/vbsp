@@ -78,6 +78,8 @@ pub enum ValidationError {
     },
     #[error("bsp contains no root node")]
     NoRootNode,
+    #[error("displacement face with {0} edges")]
+    NonSquareDisplacement(i16),
 }
 
 #[derive(Debug, Error)]

@@ -434,6 +434,12 @@ impl Bsp {
             return Err(ValidationError::NoRootNode.into());
         }
 
+        for face in &self.faces {
+            if face.displacement_index().is_some() && face.num_edges != 4 {
+                return Err(ValidationError::NonSquareDisplacement(face.num_edges).into());
+            }
+        }
+
         Ok(())
     }
 

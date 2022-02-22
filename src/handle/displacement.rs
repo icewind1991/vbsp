@@ -29,12 +29,18 @@ impl<'a> Handle<'a, DisplacementInfo> {
         self.bsp.face(self.map_face as usize)
     }
 
-    pub fn displaced_vertices(&self) -> Option<impl Iterator<Item = Vector> + 'a> {
-        let face = self.face()?;
-        let steps = 2usize.pow(self.power as u32) + 1;
+    /// Get the positions of the corners of the displaced face
+    fn corner_positions(&self) -> [Vector; 4] {
+        let face = self.face().unwrap();
+        let vertices: [_; 4] = face
+            .vertices()
+            .collect::<ArrayVec<_, 4>>()
+            .as_ref()
+            .try_into()
+            .unwrap();
+        let mut corner_positions: [Vector; 4] = vertices.map(|v| v.position);
 
-        let mut corner_positions: ArrayVec<_, 4> = face.vertices().map(|v| v.position).collect();
-
+        // find the corner closest to the start position of the displacement
         let start_index = corner_positions
             .iter()
             .copied()
@@ -45,6 +51,12 @@ impl<'a> Handle<'a, DisplacementInfo> {
             .unwrap();
 
         corner_positions.rotate_left(start_index);
+        corner_positions.try_into().unwrap()
+    }
+
+    fn subdivided_face(&self) -> impl Iterator<Item = Vector> + 'a {
+        let steps = 2usize.pow(self.power as u32) + 1;
+        let corner_positions = self.corner_positions();
 
         let step_scale = 1.0 / (steps as f32 - 1.0);
         let edge_intervals = [
@@ -52,43 +64,42 @@ impl<'a> Handle<'a, DisplacementInfo> {
             (corner_positions[2] - corner_positions[3]) * step_scale,
         ];
 
-        Some(
-            self.displacement_vertices()
-                .enumerate()
-                .map(move |(i, displacement)| {
-                    let y = (i % steps) as f32;
-                    let x = (i / steps) as f32;
-                    let edge_positions = [
-                        corner_positions[0] + edge_intervals[0] * x,
-                        corner_positions[3] + edge_intervals[1] * x,
-                    ];
-                    let segment_interval = (edge_positions[1] - edge_positions[0]) * step_scale;
-                    let base_pos = edge_positions[0] + (segment_interval * y);
-                    base_pos + displacement.displacement()
-                }),
-        )
+        (0..steps)
+            .flat_map(move |x| (0..steps).map(move |y| (x, y)))
+            .map(move |(x, y)| {
+                let edge_positions = [
+                    corner_positions[0] + edge_intervals[0] * x as f32,
+                    corner_positions[3] + edge_intervals[1] * x as f32,
+                ];
+                let segment_interval = (edge_positions[1] - edge_positions[0]) * step_scale;
+                edge_positions[0] + (segment_interval * y as f32)
+            })
     }
 
-    pub fn triangulated_displaced_vertices(&self) -> Option<impl Iterator<Item = Vector> + 'a> {
-        let vertices: Vec<_> = self.displaced_vertices()?.collect();
+    pub fn displaced_vertices(&self) -> impl Iterator<Item = Vector> + 'a {
+        self.displacement_vertices()
+            .zip(self.subdivided_face())
+            .map(move |(displacement, base_pos)| base_pos + displacement.displacement())
+    }
+
+    pub fn triangulated_displaced_vertices(&self) -> impl Iterator<Item = Vector> + 'a {
+        let vertices: Vec<_> = self.displaced_vertices().collect();
         let steps = 2usize.pow(self.power as u32);
 
         let index = move |x: usize, y: usize| y * (steps + 1) + x;
 
-        Some(
-            (0..steps)
-                .flat_map(move |x| (0..steps).map(move |y| (x, y)))
-                .flat_map(move |(x, y)| {
-                    [
-                        vertices[index(x, y)],
-                        vertices[index(x + 1, y)],
-                        vertices[index(x, y + 1)],
-                        vertices[index(x, y + 1)],
-                        vertices[index(x + 1, y + 1)],
-                        vertices[index(x + 1, y)],
-                    ]
-                }),
-        )
+        (0..steps)
+            .flat_map(move |x| (0..steps).map(move |y| (x, y)))
+            .flat_map(move |(x, y)| {
+                [
+                    vertices[index(x, y)],
+                    vertices[index(x + 1, y)],
+                    vertices[index(x, y + 1)],
+                    vertices[index(x, y + 1)],
+                    vertices[index(x + 1, y + 1)],
+                    vertices[index(x + 1, y)],
+                ]
+            })
     }
 }
 

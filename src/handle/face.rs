@@ -18,7 +18,7 @@ impl<'a> Handle<'a, Face> {
     pub fn vertices(&self) -> impl Iterator<Item = &'a Vertex> + 'a {
         let bsp = self.bsp;
         self.vertex_indexes()
-            .flat_map(move |vert_index| bsp.vertices.get(vert_index as usize))
+            .map(move |vert_index| bsp.vertices.get(vert_index as usize).unwrap())
     }
 
     /// Get the vertex indexes of all vertices making up the face
@@ -27,11 +27,12 @@ impl<'a> Handle<'a, Face> {
     pub fn vertex_indexes(&self) -> impl Iterator<Item = u16> + 'a {
         let bsp = self.bsp;
         (self.data.first_edge..(self.data.first_edge + self.data.num_edges as i32))
-            .flat_map(move |surface_edge| bsp.surface_edges.get(surface_edge as usize))
-            .flat_map(move |surface_edge| {
+            .map(move |surface_edge| bsp.surface_edges.get(surface_edge as usize).unwrap())
+            .map(move |surface_edge| {
                 bsp.edges
                     .get(surface_edge.edge_index() as usize)
                     .map(|edge| (edge, surface_edge.direction()))
+                    .unwrap()
             })
             .map(|(edge, direction)| match direction {
                 EdgeDirection::FirstToLast => edge.start_index,
