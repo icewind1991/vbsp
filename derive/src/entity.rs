@@ -6,11 +6,11 @@ use syn::{
 };
 use syn_util::{contains_attribute, get_attribute_value};
 
-type Result<T, E = String> = std::result::Result<T, E>;
+type Result<T, E = &'static str> = std::result::Result<T, E>;
 
 pub fn derive_entity(input: DeriveInput) -> Result<proc_macro2::TokenStream> {
     if input.generics.lifetimes().count() > 1 {
-        return Err("Can't derive Entity on structs or entities with more than 1 lifetime".into());
+        return Err("Can't derive Entity on structs or entities with more than 1 lifetime");
     }
     let source_lifetime = input
         .generics
@@ -21,7 +21,7 @@ pub fn derive_entity(input: DeriveInput) -> Result<proc_macro2::TokenStream> {
     match &input.data {
         Data::Struct(data) => derive_entity_struct(&input, data, source_lifetime),
         Data::Enum(data) => derive_entity_enum(&input, data, source_lifetime),
-        _ => Err("Can only derive Entity for structs and enums".into()),
+        _ => Err("Can only derive Entity for structs and enums"),
     }
 }
 
@@ -109,13 +109,13 @@ struct EntityField<'a> {
 }
 
 impl<'a> TryFrom<&'a Field> for EntityField<'a> {
-    type Error = String;
+    type Error = &'static str;
 
     fn try_from(field: &'a Field) -> std::result::Result<Self, Self::Error> {
         let ident = &field
             .ident
             .as_ref()
-            .ok_or_else(|| format!("Can't derive Entity on structs with unnamed fields"))?;
+            .ok_or("Can't derive Entity on structs with unnamed fields")?;
         let name = get_attribute_value(&field.attrs, &["entity", "name"])
             .unwrap_or_else(|| ident.to_string());
         let default = contains_attribute(&field.attrs, &["entity", "default"]);
@@ -146,25 +146,24 @@ struct EntityVariant<'a> {
 }
 
 impl<'a> TryFrom<&'a Variant> for EntityVariant<'a> {
-    type Error = String;
+    type Error = &'static str;
 
     fn try_from(value: &'a Variant) -> std::result::Result<Self, Self::Error> {
-        let name = get_attribute_value(&value.attrs, &["entity", "name"]).ok_or_else(|| {
-            "All variants must have the `#[entity(name)]` or `#[entity(default)]` attribute set"
-                .to_string()
-        })?;
+        let name = get_attribute_value(&value.attrs, &["entity", "name"]).ok_or(
+            "All variants must have the `#[entity(name)]` or `#[entity(default)]` attribute set",
+        )?;
         if value.fields.len() != 1 {
-            return Err("All enum variants must have exactly one field".into());
+            return Err("All enum variants must have exactly one field");
         }
         let field = value.fields.iter().next().unwrap();
         let path = match &field.ty {
             Type::Path(TypePath { path, .. }) => path,
-            _ => return Err("Varients can only contain plain types".into()),
+            _ => return Err("Variants can only contain plain types"),
         };
         Ok(EntityVariant {
             name,
             variant: &value.ident,
-            ty: &path,
+            ty: path,
         })
     }
 }
@@ -173,9 +172,9 @@ impl ToTokens for EntityVariant<'_> {
     fn to_tokens(&self, stream: &mut TokenStream) {
         let EntityVariant { name, variant, ty } = &self;
 
-        // strip lifetime params
+        // strip generic/lifetime params
         let ty = Path {
-            leading_colon: ty.leading_colon.clone(),
+            leading_colon: ty.leading_colon,
             segments: ty
                 .segments
                 .iter()

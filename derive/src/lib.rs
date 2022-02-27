@@ -8,7 +8,7 @@ pub fn derive_entity(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
     derive_wrapper(input, entity::derive_entity)
 }
 
-fn derive_wrapper<F: Fn(DeriveInput) -> Result<proc_macro2::TokenStream, String>>(
+fn derive_wrapper<F: Fn(DeriveInput) -> Result<proc_macro2::TokenStream, &'static str>>(
     input: proc_macro::TokenStream,
     derive: F,
 ) -> proc_macro::TokenStream {
