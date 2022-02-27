@@ -1,13 +1,13 @@
 mod bspfile;
 pub mod data;
-mod error;
+pub mod error;
 mod handle;
 mod reader;
 
 use crate::bspfile::LumpType;
 pub use crate::data::TextureFlags;
 pub use crate::data::Vector;
-use crate::data::*;
+pub use crate::data::*;
 use crate::error::ValidationError;
 pub use crate::handle::Handle;
 use binrw::io::Cursor;

@@ -1,0 +1,21 @@
+[package]
+name = "vbsp-derive"
+version = "0.1.0"
+authors = ["Robin Appelman <robin@icewind.nl>"]
+homepage = "https://github.com/icewind1991/vbsp"
+repository = "https://github.com/icewind1991/vbsp"
+description = "Derive macros used by vbsp."
+license = "MIT"
+edition = "2021"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = "1.0.82"
+quote = "1.0.10"
+proc-macro2 = "1.0.33"
+syn_util = "0.4.2"
+
+[features]
+__vbsp_as_self = []
