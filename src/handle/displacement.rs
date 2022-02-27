@@ -51,7 +51,7 @@ impl<'a> Handle<'a, DisplacementInfo> {
             .unwrap();
 
         corner_positions.rotate_left(start_index);
-        corner_positions.try_into().unwrap()
+        corner_positions
     }
 
     fn subdivided_face(&self) -> impl Iterator<Item = Vector> + 'a {

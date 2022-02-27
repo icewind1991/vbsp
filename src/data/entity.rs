@@ -138,10 +138,10 @@ where
     [T; N]: Default,
 {
     fn parse(raw: &'_ str) -> Result<Self, EntityParseError> {
-        let mut values = raw.split(" ").map(T::from_str);
+        let mut values = raw.split(' ').map(T::from_str);
         let mut result = <[T; N]>::default();
-        for i in 0..N {
-            result[i] = values.next().ok_or(EntityParseError::ElementCount)??;
+        for item in result.iter_mut() {
+            *item = values.next().ok_or(EntityParseError::ElementCount)??;
         }
         Ok(result)
     }
