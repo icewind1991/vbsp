@@ -183,6 +183,10 @@ pub enum Entity<'a> {
     EnvSprite(EnvSprite<'a>),
     #[entity(name = "info_player_teamspawn")]
     Spawn(Spawn<'a>),
+    #[entity(name = "func_regenerate")]
+    Regenerate(Regenerate<'a>),
+    #[entity(name = "func_respawnroom")]
+    RespawnRoom(RespawnRoom<'a>),
     #[entity(name = "func_door")]
     Door(Door<'a>),
     #[entity(name = "worldspawn")]
@@ -209,6 +213,8 @@ pub enum Entity<'a> {
     TriggerMultiple(TriggerMultiple<'a>),
     #[entity(name = "logic_relay")]
     LogicRelay(LogicRelay<'a>),
+    #[entity(name = "filter_activator_tfteam")]
+    FilterActivatorTeam(FilterActivatorTeam<'a>),
     #[entity(name = "logic_auto")]
     LogicAuto(LogicAuto<'a>),
     #[entity(name = "func_dustmotes")]
@@ -221,6 +227,22 @@ pub enum Entity<'a> {
     SoundScapeProxy(SoundScapeProxy<'a>),
     #[entity(name = "func_respawnroomvisualizer")]
     RespawnVisualizer(RespawnVisualizer<'a>),
+    #[entity(name = "info_particle_system")]
+    ParticleSystem(ParticleSystem<'a>),
+    #[entity(name = "team_control_point")]
+    TeamControlPoint(TeamControlPoint<'a>),
+    #[entity(name = "func_areaportal")]
+    AreaPortal(AreaPortal),
+    #[entity(name = "game_text")]
+    GameText(GameText<'a>),
+    #[entity(name = "keyframe_rope")]
+    RopeKeyFrame(RopeKeyFrame<'a>),
+    #[entity(name = "move_rope")]
+    RopeMove(RopeMove<'a>),
+    #[entity(name = "tf_gamerules")]
+    GameRules(GameRules<'a>),
+    #[entity(name = "tf_logic_koth")]
+    KothLogic(KothLogic),
     #[entity(default)]
     Unknown(RawEntity<'a>),
 }
@@ -309,6 +331,26 @@ pub struct Spawn<'a> {
     pub control_point: Option<&'a str>,
     #[entity(name = "StartDisabled", default)]
     pub start_disabled: bool,
+    #[entity(name = "TeamNum")]
+    pub team: u8,
+}
+
+#[derive(Debug, Clone, Entity)]
+pub struct RespawnRoom<'a> {
+    #[entity(name = "targetname", default)]
+    pub target: Option<&'a str>,
+    pub model: &'a str,
+    #[entity(name = "StartDisabled", default)]
+    pub start_disabled: bool,
+    #[entity(name = "TeamNum")]
+    pub team: u8,
+}
+
+#[derive(Debug, Clone, Entity)]
+pub struct Regenerate<'a> {
+    #[entity(name = "associatedmodel")]
+    pub associated_model: &'a str,
+    pub model: &'a str,
     #[entity(name = "TeamNum")]
     pub team: u8,
 }
@@ -417,6 +459,17 @@ pub struct TriggerMultiple<'a> {
 }
 
 #[derive(Debug, Clone, Entity)]
+pub struct FilterActivatorTeam<'a> {
+    pub origin: Vector,
+    #[entity(name = "targetname", default)]
+    pub target_name: Option<&'a str>,
+    #[entity(name = "negated", default)]
+    pub negated: Option<&'a str>,
+    #[entity(name = "TeamNum", default)]
+    pub team: u8,
+}
+
+#[derive(Debug, Clone, Entity)]
 pub struct LogicRelay<'a> {
     pub origin: Vector,
     #[entity(name = "targetname", default)]
@@ -500,4 +553,138 @@ pub struct RespawnVisualizer<'a> {
     #[entity(name = "rendercolor")]
     pub color: [f32; 3],
     pub solid_to_enemies: bool,
+}
+
+#[derive(Debug, Clone, Entity)]
+pub struct ParticleSystem<'a> {
+    pub origin: Vector,
+    pub angles: [f32; 3],
+    #[entity(name = "targetname")]
+    pub target_name: &'a str,
+    pub effect_name: &'a str,
+    #[entity(default)]
+    pub start_active: bool,
+}
+
+#[derive(Debug, Clone, Entity)]
+pub struct TeamControlPoint<'a> {
+    pub origin: Vector,
+    pub angles: [f32; 3],
+    #[entity(name = "targetname")]
+    pub target_name: &'a str,
+    pub point_warn_sound: &'a str,
+    pub team_model_0: &'a str,
+    pub team_model_2: &'a str,
+    pub team_model_3: &'a str,
+    pub team_icon_0: &'a str,
+    pub team_icon_2: &'a str,
+    pub team_icon_3: &'a str,
+    pub point_default_owner: u8,
+    #[entity(name = "StartDisabled", default)]
+    pub start_disabled: bool,
+}
+
+#[derive(Debug, Clone, Entity)]
+pub struct AreaPortal {
+    #[entity(name = "PortalVersion")]
+    pub version: u8,
+    #[entity(name = "portalnumber")]
+    pub number: u8,
+    #[entity(name = "StartOpen")]
+    pub start_open: bool,
+}
+
+#[derive(Debug, Clone, Entity)]
+pub struct GameText<'a> {
+    pub origin: Vector,
+    #[entity(name = "targetname", default)]
+    pub target_name: Option<&'a str>,
+    pub message: &'a str,
+    pub fadeout: f32,
+    pub color: [u8; 3],
+    #[entity(name = "fadein")]
+    pub fade_in: f32,
+    #[entity(name = "fadeout")]
+    pub fade_out: f32,
+    pub x: f32,
+    pub y: f32,
+    #[entity(name = "holdtime")]
+    pub hold_time: f32,
+    #[entity(name = "fxtime")]
+    pub fx_time: f32,
+    pub channel: u8,
+}
+
+#[derive(Debug, Clone, Entity)]
+pub struct RopeKeyFrame<'a> {
+    pub origin: Vector,
+    #[entity(name = "targetname", default)]
+    pub target_name: Option<&'a str>,
+    #[entity(name = "RopeMaterial")]
+    pub material: &'a str,
+    #[entity(name = "Dangling")]
+    pub dangling: bool,
+    #[entity(name = "Barbed")]
+    pub barbed: bool,
+    #[entity(name = "Breakable")]
+    pub breakable: bool,
+    #[entity(name = "TextureScale")]
+    pub texture_scale: f32,
+    #[entity(name = "Collide")]
+    pub collide: bool,
+    #[entity(name = "Width")]
+    pub width: f32,
+    #[entity(name = "Slack")]
+    pub slack: f32,
+    #[entity(name = "MoveSpeed")]
+    pub move_speed: f32,
+    #[entity(name = "Subdiv")]
+    pub sub_div: u8,
+}
+
+#[derive(Debug, Clone, Entity)]
+pub struct RopeMove<'a> {
+    pub origin: Vector,
+    #[entity(name = "RopeMaterial")]
+    pub material: &'a str,
+    #[entity(name = "TextureScale")]
+    pub texture_scale: f32,
+    #[entity(name = "Slack")]
+    pub slack: f32,
+    #[entity(name = "Width")]
+    pub width: f32,
+    #[entity(name = "Dangling")]
+    pub dangling: bool,
+    #[entity(name = "Barbed")]
+    pub barbed: bool,
+    #[entity(name = "Breakable")]
+    pub breakable: bool,
+    #[entity(name = "PositionInterpolator")]
+    pub interpolator: u8,
+    #[entity(name = "MoveSpeed")]
+    pub move_speed: f32,
+    #[entity(name = "Type")]
+    pub ty: u8,
+    #[entity(name = "NextKey")]
+    pub next_key: &'a str,
+    #[entity(name = "Subdiv")]
+    pub sub_div: u8,
+}
+
+#[derive(Debug, Clone, Entity)]
+pub struct GameRules<'a> {
+    pub origin: Vector,
+    #[entity(name = "targetname", default)]
+    pub target_name: Option<&'a str>,
+    #[entity(default)]
+    pub ctf_overtime: bool,
+    #[entity(default)]
+    pub hud_type: u32,
+}
+
+#[derive(Debug, Clone, Entity)]
+pub struct KothLogic {
+    pub origin: Vector,
+    pub unlock_point: u32,
+    pub timer_length: u32,
 }
