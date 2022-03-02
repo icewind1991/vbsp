@@ -2,12 +2,17 @@ use crate::data::*;
 use std::num::{ParseFloatError, ParseIntError};
 use thiserror::Error;
 
+#[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum BspError {
     #[error("unexpected magic numbers or version")]
     UnexpectedHeader(Header),
     #[error("bsp lump is out of bounds of the bsp file")]
     LumpOutOfBounds(LumpEntry),
+    #[error("bsp game lump is out of bounds of the bsp file")]
+    GameLumpOutOfBounds(GameLump),
+    #[error("compressed game lump is malformed")]
+    MalformedCompressedGameLump,
     #[error("Invalid lump size, lump size {lump_size} is not a multiple of the element size {element_size}")]
     InvalidLumpSize {
         element_size: usize,
@@ -15,6 +20,8 @@ pub enum BspError {
     },
     #[error("unexpected length of uncompressed lump, got {got} but expected {expected}")]
     UnexpectedUncompressedLumpSize { got: u32, expected: u32 },
+    #[error("unexpected length of compressed lump, got {got} but expected {expected}")]
+    UnexpectedCompressedLumpSize { got: u32, expected: u32 },
     #[error("error while decompressing lump")]
     LumpDecompressError(lzma_rs::error::Error),
     #[error("io error while reading data: {0}")]
@@ -25,6 +32,8 @@ pub enum BspError {
     MalformedData(binrw::Error),
     #[error("bsp file is well-formed but contains invalid data")]
     Validation(#[from] ValidationError),
+    #[error(transparent)]
+    LumpVersion(UnsupportedLumpVersion),
 }
 
 impl From<binrw::Error> for BspError {
@@ -35,8 +44,10 @@ impl From<binrw::Error> for BspError {
         match e {
             Error::Io(e) => BspError::IO(e),
             Error::Custom { err, .. } => {
-                if let Ok(string_error) = err.downcast::<StringError>() {
-                    BspError::String(*string_error)
+                if err.is::<StringError>() {
+                    BspError::String(*err.downcast::<StringError>().unwrap())
+                } else if err.is::<UnsupportedLumpVersion>() {
+                    BspError::LumpVersion(*err.downcast::<UnsupportedLumpVersion>().unwrap())
                 } else {
                     panic!("unexpected custom error")
                 }
@@ -66,9 +77,16 @@ pub enum StringError {
 }
 
 #[derive(Debug, Error)]
+#[error("Unsupported lump version {version} for {lump_type} lump")]
+pub struct UnsupportedLumpVersion {
+    pub lump_type: &'static str,
+    pub version: u16,
+}
+
+#[derive(Debug, Error)]
 pub enum ValidationError {
     #[error(
-        "A {source_} indexes into {target} but the index {index} is out of range of the size {size}"
+    "A {source_} indexes into {target} but the index {index} is out of range of the size {size}"
     )]
     ReferenceOutOfRange {
         source_: &'static str,
@@ -80,6 +98,8 @@ pub enum ValidationError {
     NoRootNode,
     #[error("displacement face with {0} edges")]
     NonSquareDisplacement(i16),
+    #[error("No static prop lump found")]
+    NoStaticPropLump,
 }
 
 #[derive(Debug, Error)]

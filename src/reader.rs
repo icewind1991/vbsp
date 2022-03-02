@@ -1,7 +1,8 @@
 use crate::*;
 use binrw::BinReaderExt;
-use std::any::type_name;
+// use std::any::type_name;
 use std::borrow::Cow;
+use std::fmt::Debug;
 use std::mem::size_of;
 
 pub struct LumpReader<R> {
@@ -47,19 +48,21 @@ impl<R: BinReaderExt + Read> LumpReader<R> {
         Ok(entries)
     }
 
-    pub fn read<T: BinRead>(&mut self) -> BspResult<T>
+    pub fn read<T: BinRead + Debug>(&mut self) -> BspResult<T>
     where
         T::Args: Default,
     {
-        let start = self.inner.stream_position().unwrap() as usize;
+        // let start = self.inner.stream_position().unwrap() as usize;
         let result = self.inner.read_le()?;
-        let end = self.inner.stream_position().unwrap() as usize;
-        debug_assert_eq!(
-            end - start,
-            size_of::<T>(),
-            "Incorrect number of bytes consumed while reading a {}",
-            type_name::<T>()
-        );
+        // let end = self.inner.stream_position().unwrap() as usize;
+        // todo: figure out how to only run this check for types that don't allocate
+        // debug_assert_eq!(
+        //     end - start,
+        //     size_of::<T>(),
+        //     "Incorrect number of bytes consumed while reading a {} ({:#?})",
+        //     type_name::<T>(),
+        //     result
+        // );
         Ok(result)
     }
 

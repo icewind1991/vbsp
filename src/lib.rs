@@ -11,9 +11,10 @@ pub use crate::data::*;
 use crate::error::ValidationError;
 pub use crate::handle::Handle;
 use binrw::io::Cursor;
-use binrw::BinRead;
+use binrw::{BinRead, BinReaderExt};
 use bspfile::BspFile;
 pub use error::{BspError, StringError};
+use lzma_rs::decompress::{Options, UnpackedSize};
 use reader::LumpReader;
 use std::{io::Read, ops::Deref};
 
@@ -175,6 +176,7 @@ pub struct Bsp {
     pub displacements: Vec<DisplacementInfo>,
     pub displacement_vertices: Vec<DisplacementVertex>,
     pub displacement_triangles: Vec<DisplacementTriangle>,
+    pub static_props: PropStaticGameLump,
 }
 
 impl Bsp {
@@ -238,6 +240,11 @@ impl Bsp {
         let displacement_triangles = bsp_file
             .lump_reader(LumpType::DisplacementTris)?
             .read_vec(|r| r.read())?;
+        let game_lumps: GameLumpHeader = bsp_file.lump_reader(LumpType::GameLump)?.read()?;
+
+        let static_props = game_lumps
+            .find(data)
+            .ok_or(ValidationError::NoStaticPropLump)??;
 
         let bsp = Bsp {
             header: bsp_file.header().clone(),
@@ -261,6 +268,7 @@ impl Bsp {
             displacements,
             displacement_vertices,
             displacement_triangles,
+            static_props,
         };
         bsp.validate()?;
         Ok(bsp)
@@ -326,6 +334,14 @@ impl Bsp {
                 current = self.node(next as usize).unwrap();
             }
         }
+    }
+
+    pub fn static_props(&self) -> impl Iterator<Item = Handle<'_, StaticPropLump>> {
+        self.static_props
+            .props
+            .props
+            .iter()
+            .map(|lump| Handle::new(self, lump))
     }
 
     /// Get all faces stored in the bsp
@@ -429,6 +445,12 @@ impl Bsp {
             "node",
             "leaf",
         )?;
+        self.validate_indexes(
+            self.static_props().map(|prop| prop.prop_type),
+            &self.static_props.dict.name,
+            "static props",
+            "static prop models",
+        )?;
 
         if self.nodes.is_empty() {
             return Err(ValidationError::NoRootNode.into());
@@ -444,12 +466,12 @@ impl Bsp {
     }
 
     fn validate_indexes<
-        'a,
+        'b,
         Index: TryInto<usize> + Into<i64> + Copy + Ord + Default,
         Indexes: Iterator<Item = Index>,
-        T: 'a,
+        T: 'b,
     >(
-        &'a self,
+        &'b self,
         indexes: Indexes,
         list: &[T],
         source: &'static str,
@@ -481,4 +503,41 @@ mod tests {
 
         Bsp::read(&data).unwrap();
     }
+}
+
+/// LZMA decompression with the header used by source
+fn lzma_decompress_with_header(data: &[u8], expected_length: usize) -> Result<Vec<u8>, BspError> {
+    // extra 8 byte because game lumps need some padding for reasons
+    let mut output: Vec<u8> = Vec::with_capacity(expected_length + 8);
+    let mut cursor = Cursor::new(data);
+    if b"LZMA" != &<[u8; 4]>::read(&mut cursor)? {
+        return Err(BspError::LumpDecompressError(
+            lzma_rs::error::Error::LzmaError("Invalid lzma header".into()),
+        ));
+    }
+    let actual_size: u32 = cursor.read_le()?;
+    let lzma_size: u32 = cursor.read_le()?;
+    if data.len() < lzma_size as usize + 12 {
+        return Err(BspError::UnexpectedCompressedLumpSize {
+            got: data.len() as u32,
+            expected: lzma_size,
+        });
+    }
+    lzma_rs::lzma_decompress_with_options(
+        &mut cursor,
+        &mut output,
+        &Options {
+            unpacked_size: UnpackedSize::UseProvided(Some(actual_size as u64)),
+            allow_incomplete: false,
+            memlimit: None,
+        },
+    )
+    .map_err(BspError::LumpDecompressError)?;
+    if output.len() != expected_length {
+        return Err(BspError::UnexpectedUncompressedLumpSize {
+            got: output.len() as u32,
+            expected: expected_length as u32,
+        });
+    }
+    Ok(output)
 }

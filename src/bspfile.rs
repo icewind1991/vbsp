@@ -1,7 +1,6 @@
 use crate::*;
 use binrw::io::Cursor;
 use binrw::BinReaderExt;
-use lzma_rs::decompress::{Options, UnpackedSize};
 use std::borrow::Cow;
 
 pub struct BspFile<'a> {
@@ -57,32 +56,7 @@ impl<'a> BspFile<'a> {
         Ok(match lump.ident {
             0 => Cow::Borrowed(raw_data),
             _ => {
-                let mut data: Vec<u8> = Vec::with_capacity(lump.ident as usize);
-                let mut cursor = Cursor::new(raw_data);
-                if b"LZMA" != &<[u8; 4]>::read(&mut cursor)? {
-                    return Err(BspError::LumpDecompressError(
-                        lzma_rs::error::Error::LzmaError("Invalid lzma header".into()),
-                    ));
-                }
-                let actual_size: u32 = cursor.read_le()?;
-                let _lzma_size: u32 = cursor.read_le()?;
-                lzma_rs::lzma_decompress_with_options(
-                    &mut cursor,
-                    &mut data,
-                    &Options {
-                        unpacked_size: UnpackedSize::UseProvided(Some(actual_size as u64)),
-                        allow_incomplete: false,
-                        memlimit: None,
-                    },
-                )
-                .map_err(BspError::LumpDecompressError)?;
-                if data.len() != lump.ident as usize {
-                    return Err(BspError::UnexpectedUncompressedLumpSize {
-                        got: data.len() as u32,
-                        expected: lump.ident,
-                    });
-                }
-
+                let data = lzma_decompress_with_header(raw_data, lump.ident as usize)?;
                 Cow::Owned(data)
             }
         })

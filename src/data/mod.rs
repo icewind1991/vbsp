@@ -1,9 +1,11 @@
 mod displacement;
 mod entity;
+mod game;
 mod vector;
 
 pub use self::displacement::*;
 pub use self::entity::*;
+pub use self::game::*;
 pub use self::vector::*;
 use crate::bspfile::LumpType;
 use crate::StringError;
@@ -100,6 +102,18 @@ bitflags! {
 /// Fixed length, null-terminated string
 #[derive(Debug, Clone)]
 pub struct FixedString<const LEN: usize>(ArrayString<LEN>);
+
+impl<const N: usize> AsRef<str> for FixedString<N> {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl<const N: usize> FixedString<N> {
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+}
 
 impl<const LEN: usize> Display for FixedString<LEN> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
