@@ -119,7 +119,7 @@ pub struct StaticPropLump {
     pub prop_type: u16,
     pub first_leaf: u16,
     pub leaf_count: u16,
-    pub solid: u8,
+    pub solid: SolidType,
     pub skin: i32,
     pub fade_min_distance: f32,
     pub fade_max_distance: f32,
@@ -170,6 +170,20 @@ bitflags! {
     }
 }
 
+#[repr(u8)]
+#[derive(BinRead, Debug, Copy, Clone)]
+#[br(repr = u8)]
+pub enum SolidType {
+    None = 0,
+    Bsp,
+    Bbox,
+    Obb,
+    ObbYaw,
+    Custom,
+    Physics,
+    Last,
+}
+
 impl From<StaticPropLumpFlagsV6> for StaticPropLumpFlags {
     fn from(v6: StaticPropLumpFlagsV6) -> Self {
         StaticPropLumpFlags::from_bits_truncate(v6.bits().into())
@@ -183,7 +197,7 @@ struct StaticPropLumpV6 {
     pub prop_type: u16,
     pub first_leaf: u16,
     pub leaf_count: u16,
-    pub solid: u8,
+    pub solid: SolidType,
     pub flags: StaticPropLumpFlagsV6,
     pub skin: i32,
     pub fade_min_distance: f32,
@@ -223,7 +237,7 @@ struct StaticPropLumpV10 {
     pub leaf_count: u16,
     // pad, not align
     #[br(pad_after = 1)]
-    pub solid: u8,
+    pub solid: SolidType,
     pub skin: i32,
     pub fade_min_distance: f32,
     pub fade_max_distance: f32,

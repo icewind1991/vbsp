@@ -4,16 +4,24 @@ mod game;
 
 use crate::data::*;
 use crate::Bsp;
+use std::fmt::{Debug, Formatter};
 use std::ops::Deref;
 
 /// A handle represents a data structure in the bsp file and the bsp file containing it.
 ///
 /// Keeping a reference of the bsp file with the data is required since a lot of data types
 /// reference parts from other structures in the bsp file
-#[derive(Debug)]
 pub struct Handle<'a, T> {
     bsp: &'a Bsp,
     data: &'a T,
+}
+
+impl<T: Debug> Debug for Handle<'_, T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Handle")
+            .field("data", self.data)
+            .finish_non_exhaustive()
+    }
 }
 
 impl<T> Clone for Handle<'_, T> {
