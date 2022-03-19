@@ -20,6 +20,7 @@ binrw = "0.8.0"
 static_assertions = "1.1.0"
 num_enum = "0.5.6"
 vbsp-derive = { path = "derive", version = "*" }
+cgmath = "0.18.0"
 
 [dev-dependencies]
 obj = "0.10"

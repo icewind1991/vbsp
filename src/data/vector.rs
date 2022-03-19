@@ -1,5 +1,6 @@
 use crate::error::EntityParseError;
 use binrw::BinRead;
+use cgmath::Vector3;
 use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::ops::{Add, Mul, Sub};
@@ -101,5 +102,11 @@ impl FromStr for Vector {
         let y = floats.next().ok_or(EntityParseError::ElementCount)??;
         let z = floats.next().ok_or(EntityParseError::ElementCount)??;
         Ok(Vector { x, y, z })
+    }
+}
+
+impl From<Vector> for Vector3<f32> {
+    fn from(v: Vector) -> Self {
+        Vector3::new(v.x, v.y, v.z)
     }
 }
