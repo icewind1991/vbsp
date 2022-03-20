@@ -1,6 +1,7 @@
 use crate::data::*;
 use std::num::{ParseFloatError, ParseIntError};
 use thiserror::Error;
+use zip::result::ZipError;
 
 #[non_exhaustive]
 #[derive(Debug, Error)]
@@ -34,6 +35,8 @@ pub enum BspError {
     Validation(#[from] ValidationError),
     #[error(transparent)]
     LumpVersion(UnsupportedLumpVersion),
+    #[error(transparent)]
+    Zip(#[from] ZipError),
 }
 
 impl From<binrw::Error> for BspError {

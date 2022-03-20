@@ -177,6 +177,7 @@ pub struct Bsp {
     pub displacement_vertices: Vec<DisplacementVertex>,
     pub displacement_triangles: Vec<DisplacementTriangle>,
     pub static_props: PropStaticGameLump,
+    pub pack: Packfile,
 }
 
 impl Bsp {
@@ -241,6 +242,7 @@ impl Bsp {
             .lump_reader(LumpType::DisplacementTris)?
             .read_vec(|r| r.read())?;
         let game_lumps: GameLumpHeader = bsp_file.lump_reader(LumpType::GameLump)?.read()?;
+        let pack = Packfile::read(bsp_file.lump_reader(LumpType::PakFile)?.into_data())?;
 
         let static_props = game_lumps
             .find(data)
@@ -269,6 +271,7 @@ impl Bsp {
             displacement_vertices,
             displacement_triangles,
             static_props,
+            pack,
         };
         bsp.validate()?;
         Ok(bsp)

@@ -8,16 +8,21 @@ pub use self::entity::*;
 pub use self::game::*;
 pub use self::vector::*;
 use crate::bspfile::LumpType;
-use crate::StringError;
+use crate::{BspResult, StringError};
 use arrayvec::ArrayString;
 use binrw::io::SeekFrom;
 use binrw::{BinRead, BinResult, ReadOptions};
 use bitflags::bitflags;
 use bv::BitVec;
+use std::borrow::Cow;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
+use std::io::{Cursor, Read};
 use std::mem::{align_of, size_of};
 use std::ops::Index;
+use std::sync::Mutex;
+use zip::result::ZipError;
+use zip::ZipArchive;
 
 #[cfg(test)]
 fn test_read_bytes<T: BinRead>()
@@ -408,5 +413,58 @@ impl VisData {
         }
 
         visible_clusters
+    }
+}
+
+pub struct Packfile {
+    zip: Mutex<ZipArchive<Cursor<Vec<u8>>>>,
+}
+
+impl Clone for Packfile {
+    fn clone(&self) -> Self {
+        Packfile {
+            zip: Mutex::new(self.zip.lock().unwrap().clone()),
+        }
+    }
+}
+
+impl Debug for Packfile {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Packfile")
+            .field(
+                "zip",
+                &self
+                    .zip
+                    .lock()
+                    .unwrap()
+                    .file_names()
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            )
+            .finish()
+    }
+}
+
+impl Packfile {
+    pub fn read(data: Cow<[u8]>) -> BspResult<Self> {
+        let reader = Cursor::new(data.into_owned());
+        let zip = Mutex::new(ZipArchive::new(reader)?);
+        Ok(Packfile { zip })
+    }
+
+    pub fn get(&self, name: &str) -> BspResult<Option<Vec<u8>>> {
+        let mut zip = self.zip.lock().unwrap();
+        let mut entry = match zip.by_name(name) {
+            Ok(entry) => entry,
+            Err(ZipError::FileNotFound) => {
+                return Ok(None);
+            }
+            Err(e) => {
+                return Err(e.into());
+            }
+        };
+        let mut buff = vec![0; entry.size() as usize];
+        entry.read_exact(&mut buff)?;
+        Ok(Some(buff))
     }
 }

@@ -19,6 +19,10 @@ impl<'a> LumpReader<Cursor<Cow<'a, [u8]>>> {
             length,
         }
     }
+
+    pub fn into_data(self) -> Cow<'a, [u8]> {
+        self.inner.into_inner()
+    }
 }
 
 impl<R: BinReaderExt + Read> LumpReader<R> {
