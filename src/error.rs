@@ -2,6 +2,7 @@ use crate::data::*;
 use std::num::{ParseFloatError, ParseIntError};
 use thiserror::Error;
 use zip::result::ZipError;
+use crate::bspfile::LumpType;
 
 #[non_exhaustive]
 #[derive(Debug, Error)]
@@ -16,6 +17,7 @@ pub enum BspError {
     MalformedCompressedGameLump,
     #[error("Invalid lump size, lump size {lump_size} is not a multiple of the element size {element_size}")]
     InvalidLumpSize {
+        lump: LumpType,
         element_size: usize,
         lump_size: usize,
     },

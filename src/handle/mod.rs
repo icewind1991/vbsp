@@ -119,3 +119,24 @@ impl<'a> Handle<'a, Leaf> {
             .filter_map(move |leaf_face| bsp.face(leaf_face.face as usize))
     }
 }
+
+impl<'a> Handle<'a, TextureInfo> {
+    pub fn texture_data(&self) -> Handle<'a, TextureData> {
+        Handle::new(self.bsp, &self.bsp.textures_data[self.data.texture_data_index as usize])
+    }
+    pub fn name(&self) -> &'a str {
+        self.texture_data().name()
+    }
+}
+
+impl<'a> Handle<'a, TextureData> {
+    pub fn name(&self) -> &'a str {
+        let start = self.bsp.texture_string_tables[self.name_string_table_id as usize] as usize;
+        let part = &self.bsp.texture_string_data[start..];
+        if let Some((s, _)) = part.split_once("\0") {
+            s
+        } else {
+            part
+        }
+    }
+}

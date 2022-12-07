@@ -159,6 +159,8 @@ pub struct Bsp {
     pub entities: Entities,
     pub textures_data: Vec<TextureData>,
     pub textures_info: Vec<TextureInfo>,
+    pub texture_string_tables: Vec<i32>,
+    pub texture_string_data: String,
     pub planes: Vec<Plane>,
     pub nodes: Vec<Node>,
     pub leaves: Leaves,
@@ -191,6 +193,12 @@ impl Bsp {
         let textures_info = bsp_file
             .lump_reader(LumpType::TextureInfo)?
             .read_vec(|r| r.read())?;
+        let texture_string_tables = bsp_file
+            .lump_reader(LumpType::TextureDataStringTable)?
+            .read_vec(|r| r.read())?;
+        let texture_string_data = String::from_utf8(bsp_file
+            .get_lump(LumpType::TextureDataStringData)?
+            .into_owned()).map_err(|e| BspError::String(StringError::NonUTF8(e.utf8_error())))?;
         let planes = bsp_file
             .lump_reader(LumpType::Planes)?
             .read_vec(|r| r.read())?;
@@ -253,6 +261,8 @@ impl Bsp {
             entities,
             textures_data,
             textures_info,
+            texture_string_tables,
+            texture_string_data,
             planes,
             nodes,
             leaves,
@@ -313,6 +323,11 @@ impl Bsp {
     /// Get all models stored in the bsp
     pub fn models(&self) -> impl Iterator<Item = Handle<'_, Model>> {
         self.models.iter().map(move |m| Handle::new(self, m))
+    }
+
+    /// Get all models stored in the bsp
+    pub fn textures(&self) -> impl Iterator<Item = Handle<'_, TextureInfo>> {
+        self.textures_info.iter().map(move |m| Handle::new(self, m))
     }
 
     /// Find a leaf for a specific position
@@ -423,6 +438,22 @@ impl Bsp {
             &self.textures_data,
             "texture_info",
             "texture_data",
+        )?;
+        self.validate_indexes(
+            self.textures_data
+                .iter()
+                .map(|texture| texture.name_string_table_id),
+            &self.texture_string_tables,
+            "textures_data",
+            "texture_string_tables",
+        )?;
+        self.validate_indexes(
+            self.texture_string_tables
+                .iter()
+                .map(|texture| *texture),
+            &self.texture_string_data.as_bytes(),
+            "texture_string_tables",
+            "texture_string_data",
         )?;
         self.validate_indexes(
             self.nodes.iter().map(|node| node.plane_index),

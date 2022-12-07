@@ -1,3 +1,4 @@
+#[allow(unused_imports)]
 use std::ops::Deref;
 
 fn main() -> Result<(), vbsp::BspError> {
@@ -12,9 +13,13 @@ fn main() -> Result<(), vbsp::BspError> {
     //     }
     // }
 
-    for prop in bsp.static_props() {
-        dbg!(prop.deref());
-        dbg!(prop.model());
+    // for prop in bsp.static_props() {
+    //     dbg!(prop.deref());
+    //     dbg!(prop.model());
+    // }
+
+    for tex in bsp.textures() {
+        println!("{}", tex.name());
     }
 
     Ok(())

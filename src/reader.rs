@@ -1,6 +1,5 @@
 use crate::*;
 use binrw::BinReaderExt;
-// use std::any::type_name;
 use std::borrow::Cow;
 use std::fmt::Debug;
 use std::mem::size_of;
@@ -8,15 +7,17 @@ use std::mem::size_of;
 pub struct LumpReader<R> {
     inner: R,
     length: usize,
+    lump: LumpType,
 }
 
 impl<'a> LumpReader<Cursor<Cow<'a, [u8]>>> {
-    pub fn new(data: Cow<'a, [u8]>) -> Self {
+    pub fn new(data: Cow<'a, [u8]>, lump: LumpType) -> Self {
         let length = data.len();
         let reader = Cursor::new(data);
         LumpReader {
             inner: reader,
             length,
+            lump,
         }
     }
 
@@ -32,12 +33,14 @@ impl<R: BinReaderExt + Read> LumpReader<R> {
         Ok(Entities { entities })
     }
 
+    /// Read a list of items with a fixed size
     pub fn read_vec<F, T>(&mut self, mut f: F) -> BspResult<Vec<T>>
     where
         F: FnMut(&mut LumpReader<R>) -> BspResult<T>,
     {
         if self.length % size_of::<T>() != 0 {
             return Err(BspError::InvalidLumpSize {
+                lump: self.lump,
                 element_size: size_of::<T>(),
                 lump_size: self.length,
             });

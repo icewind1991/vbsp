@@ -43,10 +43,10 @@ impl<'a> BspFile<'a> {
 
     pub fn lump_reader(&self, lump: LumpType) -> BspResult<LumpReader<Cursor<Cow<[u8]>>>> {
         let data = self.get_lump(lump)?;
-        Ok(LumpReader::new(data))
+        Ok(LumpReader::new(data, lump))
     }
 
-    fn get_lump(&self, lump: LumpType) -> BspResult<Cow<[u8]>> {
+    pub fn get_lump(&self, lump: LumpType) -> BspResult<Cow<[u8]>> {
         let lump = &self.directories[lump];
         let raw_data = self
             .data
