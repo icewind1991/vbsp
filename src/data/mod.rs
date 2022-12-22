@@ -15,6 +15,7 @@ use binrw::{BinRead, BinResult, ReadOptions};
 use bitflags::bitflags;
 use bv::BitVec;
 use std::borrow::Cow;
+use std::cmp::min;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::io::{Cursor, Read};
@@ -388,7 +389,7 @@ impl VisData {
     pub fn visible_clusters(&self, cluster: i16) -> BitVec<u8> {
         let offset = self.pvs_offsets[cluster as usize] as usize;
         let pvs_buffer = &self.data[offset..];
-        let mut visible_clusters = BitVec::with_capacity(self.cluster_count as u64);
+        let mut visible_clusters = BitVec::with_capacity(min(self.cluster_count as u64, 1024));
         visible_clusters.resize(self.cluster_count as u64, false);
 
         let mut cluster_index = 0;

@@ -74,13 +74,13 @@ impl<R: BinReaderExt + Read> LumpReader<R> {
     }
 
     pub fn read_visdata(&mut self) -> BspResult<VisData> {
-        if (self.length as usize) < std::mem::size_of::<u32>() * 2 {
+        if (self.length as usize) < size_of::<u32>() * 2 {
             return Ok(VisData::default());
         }
 
         let cluster_count = self.inner.read_le()?;
-        let mut pvs_offsets = Vec::with_capacity(cluster_count as usize);
-        let mut pas_offsets = Vec::with_capacity(cluster_count as usize);
+        let mut pvs_offsets = Vec::with_capacity(min(cluster_count as usize, 1024));
+        let mut pas_offsets = Vec::with_capacity(min(cluster_count as usize, 1024));
 
         for _ in 0..cluster_count {
             pvs_offsets.push(self.inner.read_le()?);

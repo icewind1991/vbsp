@@ -17,6 +17,7 @@ pub use error::{BspError, StringError};
 use lzma_rs::decompress::{Options, UnpackedSize};
 use reader::LumpReader;
 use std::{io::Read, ops::Deref};
+use std::cmp::min;
 
 pub type BspResult<T> = Result<T, BspError>;
 
@@ -542,7 +543,7 @@ mod tests {
 /// LZMA decompression with the header used by source
 fn lzma_decompress_with_header(data: &[u8], expected_length: usize) -> Result<Vec<u8>, BspError> {
     // extra 8 byte because game lumps need some padding for reasons
-    let mut output: Vec<u8> = Vec::with_capacity(expected_length + 8);
+    let mut output: Vec<u8> = Vec::with_capacity(min(expected_length + 8, 8 * 1024 * 1024));
     let mut cursor = Cursor::new(data);
     if b"LZMA" != &<[u8; 4]>::read(&mut cursor)? {
         return Err(BspError::LumpDecompressError(
