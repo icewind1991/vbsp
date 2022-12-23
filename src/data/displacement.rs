@@ -1,4 +1,5 @@
 use super::vector::Vector;
+use crate::data::try_read_enum;
 use crate::error::InvalidNeighbourError;
 use binrw::{BinRead, BinResult, ReadOptions};
 use bitflags::bitflags;
@@ -137,15 +138,12 @@ impl BinRead for NeighbourSpan {
         options: &ReadOptions,
         args: Self::Args,
     ) -> BinResult<Self> {
-        let start = reader.stream_position().unwrap();
-        let raw = u8::read_options(reader, options, args)?;
-
-        NeighbourSpan::try_from(raw)
-            .map_err(|_| InvalidNeighbourError::InvalidNeighbourSpan(raw))
-            .map_err(|e| binrw::Error::Custom {
-                pos: start,
-                err: Box::new(e),
-            })
+        try_read_enum(
+            reader,
+            options,
+            args,
+            InvalidNeighbourError::InvalidNeighbourSpan,
+        )
     }
 }
 
@@ -166,15 +164,12 @@ impl BinRead for NeighbourOrientation {
         options: &ReadOptions,
         args: Self::Args,
     ) -> BinResult<Self> {
-        let start = reader.stream_position().unwrap();
-        let raw = u8::read_options(reader, options, args)?;
-
-        NeighbourOrientation::try_from(raw)
-            .map_err(|_| InvalidNeighbourError::InvalidNeighbourOrientation(raw))
-            .map_err(|e| binrw::Error::Custom {
-                pos: start,
-                err: Box::new(e),
-            })
+        try_read_enum(
+            reader,
+            options,
+            args,
+            InvalidNeighbourError::InvalidNeighbourOrientation,
+        )
     }
 }
 

@@ -10,14 +10,16 @@ pub use self::vector::*;
 use crate::bspfile::LumpType;
 use crate::{BspResult, StringError};
 use arrayvec::ArrayString;
+use binrw::error::CustomError;
 use binrw::{BinRead, BinResult, ReadOptions};
 use bitflags::bitflags;
 use bv::BitVec;
+use num_enum::TryFromPrimitive;
 use std::borrow::Cow;
 use std::cmp::min;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
-use std::io::{Cursor, Read};
+use std::io::{Cursor, Read, Seek};
 use std::mem::{align_of, size_of};
 use std::ops::Index;
 use std::sync::Mutex;
@@ -469,4 +471,28 @@ impl Packfile {
         entry.read_exact(&mut buff)?;
         Ok(Some(buff))
     }
+}
+
+fn try_read_enum<T, R, E, F>(
+    reader: &mut R,
+    options: &ReadOptions,
+    args: <<T as TryFromPrimitive>::Primitive as BinRead>::Args,
+    err_map: F,
+) -> BinResult<T>
+where
+    R: Read + Seek,
+    T: TryFromPrimitive,
+    T::Primitive: BinRead,
+    F: FnOnce(T::Primitive) -> E,
+    E: CustomError + 'static,
+{
+    let start = reader.stream_position().unwrap();
+    let raw = <T::Primitive>::read_options(reader, options, args)?;
+
+    T::try_from_primitive(raw)
+        .map_err(|e| err_map(e.number))
+        .map_err(|e| binrw::Error::Custom {
+            pos: start,
+            err: Box::new(e),
+        })
 }
