@@ -1,4 +1,5 @@
 use super::vector::Vector;
+use crate::error::InvalidNeighbourError;
 use binrw::{BinRead, BinResult, ReadOptions};
 use bitflags::bitflags;
 use num_enum::TryFromPrimitive;
@@ -75,7 +76,6 @@ impl BinRead for DisplacementNeighbour {
 static_assertions::const_assert_eq!(size_of::<DisplacementNeighbour>(), 12);
 
 #[derive(Debug, Clone, BinRead)]
-#[br(assert(neighbour_index == u16::MAX || (neighbour_orientation < 4 && span < 4 && neighbour_span < 4), "valid neighbour index with invalid enum fields"))]
 struct RawDisplacementSubNeighbour {
     neighbour_index: u16,
     neighbour_orientation: u8,
@@ -101,18 +101,24 @@ pub struct DisplacementSubNeighbour {
 }
 
 impl TryFrom<RawDisplacementSubNeighbour> for DisplacementSubNeighbour {
-    type Error = ();
+    type Error = InvalidNeighbourError;
 
     fn try_from(value: RawDisplacementSubNeighbour) -> Result<Self, Self::Error> {
         match value.neighbour_index {
-            u16::MAX => Err(()),
+            u16::MAX => Err(InvalidNeighbourError::InvalidNeighbourIndex),
             neighbour_index => Ok(DisplacementSubNeighbour {
                 neighbour_index,
-                // note that we already checked if these enums are valid in the assert of the RawDisplacementSubNeighbour reader
                 neighbour_orientation: NeighbourOrientation::try_from(value.neighbour_orientation)
-                    .unwrap(),
-                span: NeighbourSpan::try_from(value.span).unwrap(),
-                neighbour_span: NeighbourSpan::try_from(value.neighbour_span).unwrap(),
+                    .map_err(|_| {
+                        InvalidNeighbourError::InvalidNeighbourOrientation(
+                            value.neighbour_orientation,
+                        )
+                    })?,
+                span: NeighbourSpan::try_from(value.span)
+                    .map_err(|_| InvalidNeighbourError::InvalidNeighbourSpan(value.span))?,
+                neighbour_span: NeighbourSpan::try_from(value.neighbour_span).map_err(|_| {
+                    InvalidNeighbourError::InvalidNeighbourSpan(value.neighbour_span)
+                })?,
             }),
         }
     }

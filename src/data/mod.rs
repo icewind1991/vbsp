@@ -32,7 +32,6 @@ where
 {
     use binrw::BinReaderExt;
     use std::any::type_name;
-    use std::io::Cursor;
 
     let bytes = [0; 512];
     let mut reader = Cursor::new(bytes);

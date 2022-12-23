@@ -122,7 +122,10 @@ impl<'a> Handle<'a, Leaf> {
 
 impl<'a> Handle<'a, TextureInfo> {
     pub fn texture_data(&self) -> Handle<'a, TextureData> {
-        Handle::new(self.bsp, &self.bsp.textures_data[self.data.texture_data_index as usize])
+        Handle::new(
+            self.bsp,
+            &self.bsp.textures_data[self.data.texture_data_index as usize],
+        )
     }
     pub fn name(&self) -> &'a str {
         self.texture_data().name()

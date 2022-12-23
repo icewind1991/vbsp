@@ -16,8 +16,8 @@ use bspfile::BspFile;
 pub use error::{BspError, StringError};
 use lzma_rs::decompress::{Options, UnpackedSize};
 use reader::LumpReader;
-use std::{io::Read, ops::Deref};
 use std::cmp::min;
+use std::{io::Read, ops::Deref};
 
 pub type BspResult<T> = Result<T, BspError>;
 
@@ -197,9 +197,12 @@ impl Bsp {
         let texture_string_tables = bsp_file
             .lump_reader(LumpType::TextureDataStringTable)?
             .read_vec(|r| r.read())?;
-        let texture_string_data = String::from_utf8(bsp_file
-            .get_lump(LumpType::TextureDataStringData)?
-            .into_owned()).map_err(|e| BspError::String(StringError::NonUTF8(e.utf8_error())))?;
+        let texture_string_data = String::from_utf8(
+            bsp_file
+                .get_lump(LumpType::TextureDataStringData)?
+                .into_owned(),
+        )
+        .map_err(|e| BspError::String(StringError::NonUTF8(e.utf8_error())))?;
         let planes = bsp_file
             .lump_reader(LumpType::Planes)?
             .read_vec(|r| r.read())?;
@@ -449,9 +452,7 @@ impl Bsp {
             "texture_string_tables",
         )?;
         self.validate_indexes(
-            self.texture_string_tables
-                .iter()
-                .map(|texture| *texture),
+            self.texture_string_tables.iter().map(|texture| *texture),
             &self.texture_string_data.as_bytes(),
             "texture_string_tables",
             "texture_string_data",

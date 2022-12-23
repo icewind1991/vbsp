@@ -1,8 +1,8 @@
+use crate::bspfile::LumpType;
 use crate::data::*;
 use std::num::{ParseFloatError, ParseIntError};
 use thiserror::Error;
 use zip::result::ZipError;
-use crate::bspfile::LumpType;
 
 #[non_exhaustive]
 #[derive(Debug, Error)]
@@ -105,6 +105,18 @@ pub enum ValidationError {
     NonSquareDisplacement(i16),
     #[error("No static prop lump found")]
     NoStaticPropLump,
+    #[error(transparent)]
+    Neighbour(InvalidNeighbourError),
+}
+
+#[derive(Debug, Error)]
+pub enum InvalidNeighbourError {
+    #[error("Invalid neighbour span")]
+    InvalidNeighbourIndex,
+    #[error("Invalid neighbour span")]
+    InvalidNeighbourSpan(u8),
+    #[error("Invalid neighbour orientation")]
+    InvalidNeighbourOrientation(u8),
 }
 
 #[derive(Debug, Error)]
