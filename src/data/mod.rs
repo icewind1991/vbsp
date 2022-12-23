@@ -473,23 +473,23 @@ impl Packfile {
     }
 }
 
-fn try_read_enum<T, R, E, F>(
-    reader: &mut R,
+fn try_read_enum<Enum, Reader, Error, ErrorFn>(
+    reader: &mut Reader,
     options: &ReadOptions,
-    args: <<T as TryFromPrimitive>::Primitive as BinRead>::Args,
-    err_map: F,
-) -> BinResult<T>
+    args: <<Enum as TryFromPrimitive>::Primitive as BinRead>::Args,
+    err_map: ErrorFn,
+) -> BinResult<Enum>
 where
-    R: Read + Seek,
-    T: TryFromPrimitive,
-    T::Primitive: BinRead,
-    F: FnOnce(T::Primitive) -> E,
-    E: CustomError + 'static,
+    Reader: Read + Seek,
+    Enum: TryFromPrimitive,
+    Enum::Primitive: BinRead,
+    ErrorFn: FnOnce(Enum::Primitive) -> Error,
+    Error: CustomError + 'static,
 {
     let start = reader.stream_position().unwrap();
-    let raw = <T::Primitive>::read_options(reader, options, args)?;
+    let raw = <Enum::Primitive>::read_options(reader, options, args)?;
 
-    T::try_from_primitive(raw)
+    Enum::try_from_primitive(raw)
         .map_err(|e| err_map(e.number))
         .map_err(|e| binrw::Error::Custom {
             pos: start,
