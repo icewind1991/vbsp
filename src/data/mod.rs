@@ -10,7 +10,6 @@ pub use self::vector::*;
 use crate::bspfile::LumpType;
 use crate::{BspResult, StringError};
 use arrayvec::ArrayString;
-use binrw::io::SeekFrom;
 use binrw::{BinRead, BinResult, ReadOptions};
 use bitflags::bitflags;
 use bv::BitVec;
@@ -25,6 +24,7 @@ use std::sync::Mutex;
 use zip::result::ZipError;
 use zip::ZipArchive;
 
+/// Validate that reading the type consumes `size_of::<T>()` bytes
 #[cfg(test)]
 fn test_read_bytes<T: BinRead>()
 where
@@ -129,12 +129,14 @@ impl<const LEN: usize> Display for FixedString<LEN> {
 impl<const LEN: usize> BinRead for FixedString<LEN> {
     type Args = ();
 
-    fn read_options<R: binrw::io::Read + binrw::io::Seek>(
+    fn read_options<R: Read + binrw::io::Seek>(
         reader: &mut R,
         options: &ReadOptions,
         args: Self::Args,
     ) -> BinResult<Self> {
         use std::str;
+
+        let start = reader.stream_position().unwrap();
 
         let name_buf = <[u8; LEN]>::read_options(reader, options, args)?;
 
@@ -143,7 +145,7 @@ impl<const LEN: usize> BinRead for FixedString<LEN> {
                 .iter()
                 .position(|c| *c == 0)
                 .ok_or_else(|| binrw::Error::Custom {
-                    pos: reader.seek(SeekFrom::Current(0)).unwrap(),
+                    pos: start,
                     err: Box::new(StringError::NotNullTerminated),
                 })?;
         let name = &name_buf[..zero_pos];
@@ -152,7 +154,7 @@ impl<const LEN: usize> BinRead for FixedString<LEN> {
                 str::from_utf8(name)
                     .map_err(StringError::NonUTF8)
                     .map_err(|e| binrw::Error::Custom {
-                        pos: reader.seek(SeekFrom::Current(0)).unwrap(),
+                        pos: start,
                         err: Box::new(e),
                     })?,
             )

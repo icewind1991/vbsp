@@ -4,7 +4,7 @@ use binrw::{BinRead, BinResult, ReadOptions};
 use bitflags::bitflags;
 use num_enum::TryFromPrimitive;
 use std::fmt::Debug;
-use std::io::{Read, Seek};
+use std::io::{Read, Seek, SeekFrom};
 use std::mem::{align_of, size_of};
 
 #[derive(Debug, Clone, BinRead)]
@@ -47,46 +47,22 @@ fn test_displacement_bytes() {
 
 static_assertions::const_assert_eq!(size_of::<DisplacementInfo>(), 176);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, BinRead)]
 pub struct DisplacementNeighbour {
-    pub sub_neighbours: [Option<DisplacementSubNeighbour>; 2],
+    sub_neighbours: [DisplacementSubNeighbour; 2],
 }
 
 impl DisplacementNeighbour {
     pub fn iter(&self) -> impl Iterator<Item = &DisplacementSubNeighbour> {
-        self.sub_neighbours.iter().filter_map(Option::as_ref)
-    }
-}
-
-impl BinRead for DisplacementNeighbour {
-    type Args = ();
-
-    fn read_options<R: Read + Seek>(
-        reader: &mut R,
-        options: &ReadOptions,
-        args: Self::Args,
-    ) -> BinResult<Self> {
-        let raws = <[RawDisplacementSubNeighbour; 2]>::read_options(reader, options, args)?;
-        Ok(DisplacementNeighbour {
-            sub_neighbours: raws.map(|raw| raw.try_into().ok()),
-        })
+        self.sub_neighbours.iter().filter(|sub| sub.is_valid())
     }
 }
 
 static_assertions::const_assert_eq!(size_of::<DisplacementNeighbour>(), 12);
 
-#[derive(Debug, Clone, BinRead)]
-struct RawDisplacementSubNeighbour {
-    neighbour_index: u16,
-    neighbour_orientation: u8,
-    span: u8,
-    #[br(align_after = align_of::< DisplacementSubNeighbour > ())]
-    neighbour_span: u8,
-}
-
 #[test]
-fn test_sub_neighbour_bytes() {
-    super::test_read_bytes::<RawDisplacementSubNeighbour>();
+fn test_neighbour_bytes() {
+    super::test_read_bytes::<DisplacementNeighbour>();
 }
 
 #[derive(Debug, Clone)]
@@ -100,47 +76,106 @@ pub struct DisplacementSubNeighbour {
     pub neighbour_span: NeighbourSpan,
 }
 
-impl TryFrom<RawDisplacementSubNeighbour> for DisplacementSubNeighbour {
-    type Error = InvalidNeighbourError;
+impl DisplacementSubNeighbour {
+    fn is_valid(&self) -> bool {
+        self.neighbour_index != u16::MAX
+    }
+}
+impl BinRead for DisplacementSubNeighbour {
+    type Args = ();
 
-    fn try_from(value: RawDisplacementSubNeighbour) -> Result<Self, Self::Error> {
-        match value.neighbour_index {
-            u16::MAX => Err(InvalidNeighbourError::InvalidNeighbourIndex),
-            neighbour_index => Ok(DisplacementSubNeighbour {
+    fn read_options<R: Read + Seek>(
+        reader: &mut R,
+        options: &ReadOptions,
+        args: Self::Args,
+    ) -> BinResult<Self> {
+        let neighbour_index = u16::read_options(reader, options, args)?;
+
+        // for non-connected sub-neighbours, the orientations and spans sometimes contain garbage
+        if neighbour_index == u16::MAX {
+            reader.seek(SeekFrom::Current(4))?;
+            Ok(DisplacementSubNeighbour {
                 neighbour_index,
-                neighbour_orientation: NeighbourOrientation::try_from(value.neighbour_orientation)
-                    .map_err(|_| {
-                        InvalidNeighbourError::InvalidNeighbourOrientation(
-                            value.neighbour_orientation,
-                        )
-                    })?,
-                span: NeighbourSpan::try_from(value.span)
-                    .map_err(|_| InvalidNeighbourError::InvalidNeighbourSpan(value.span))?,
-                neighbour_span: NeighbourSpan::try_from(value.neighbour_span).map_err(|_| {
-                    InvalidNeighbourError::InvalidNeighbourSpan(value.neighbour_span)
-                })?,
-            }),
+                neighbour_orientation: NeighbourOrientation::Ccw0,
+                span: NeighbourSpan::CornerToCorner,
+                neighbour_span: NeighbourSpan::CornerToCorner,
+            })
+        } else {
+            let result = DisplacementSubNeighbour {
+                neighbour_index,
+                neighbour_orientation: NeighbourOrientation::read_options(reader, options, args)?,
+                span: NeighbourSpan::read_options(reader, options, args)?,
+                neighbour_span: NeighbourSpan::read_options(reader, options, args)?,
+            };
+            reader.seek(SeekFrom::Current(1))?;
+            Ok(result)
         }
     }
 }
 
+#[test]
+fn test_sub_neighbour_bytes() {
+    super::test_read_bytes::<DisplacementSubNeighbour>();
+}
+
 static_assertions::const_assert_eq!(size_of::<DisplacementSubNeighbour>(), 6);
+static_assertions::const_assert_eq!(align_of::<DisplacementSubNeighbour>(), 2);
 
 #[derive(Debug, Clone, TryFromPrimitive)]
 #[repr(u8)]
 pub enum NeighbourSpan {
-    CornerToCorner,
-    CornerToMidPoint,
-    MidPointToCorner,
+    CornerToCorner = 0,
+    CornerToMidPoint = 1,
+    MidPointToCorner = 2,
+}
+
+impl BinRead for NeighbourSpan {
+    type Args = ();
+
+    fn read_options<R: Read + Seek>(
+        reader: &mut R,
+        options: &ReadOptions,
+        args: Self::Args,
+    ) -> BinResult<Self> {
+        let start = reader.stream_position().unwrap();
+        let raw = u8::read_options(reader, options, args)?;
+
+        NeighbourSpan::try_from(raw)
+            .map_err(|_| InvalidNeighbourError::InvalidNeighbourSpan(raw))
+            .map_err(|e| binrw::Error::Custom {
+                pos: start,
+                err: Box::new(e),
+            })
+    }
 }
 
 #[derive(Debug, Clone, TryFromPrimitive)]
 #[repr(u8)]
 pub enum NeighbourOrientation {
-    Ccw0,
-    Ccw90,
-    Ccw180,
-    Ccw270,
+    Ccw0 = 0,
+    Ccw90 = 1,
+    Ccw180 = 2,
+    Ccw270 = 3,
+}
+
+impl BinRead for NeighbourOrientation {
+    type Args = ();
+
+    fn read_options<R: Read + Seek>(
+        reader: &mut R,
+        options: &ReadOptions,
+        args: Self::Args,
+    ) -> BinResult<Self> {
+        let start = reader.stream_position().unwrap();
+        let raw = u8::read_options(reader, options, args)?;
+
+        NeighbourOrientation::try_from(raw)
+            .map_err(|_| InvalidNeighbourError::InvalidNeighbourOrientation(raw))
+            .map_err(|e| binrw::Error::Custom {
+                pos: start,
+                err: Box::new(e),
+            })
+    }
 }
 
 #[derive(Debug, Clone, BinRead)]

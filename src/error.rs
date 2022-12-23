@@ -54,6 +54,10 @@ impl From<binrw::Error> for BspError {
                     BspError::String(*err.downcast::<StringError>().unwrap())
                 } else if err.is::<UnsupportedLumpVersion>() {
                     BspError::LumpVersion(*err.downcast::<UnsupportedLumpVersion>().unwrap())
+                } else if err.is::<InvalidNeighbourError>() {
+                    BspError::Validation(ValidationError::Neighbour(
+                        *err.downcast::<InvalidNeighbourError>().unwrap(),
+                    ))
                 } else {
                     panic!("unexpected custom error")
                 }
@@ -112,8 +116,6 @@ pub enum ValidationError {
 
 #[derive(Debug, Error)]
 pub enum InvalidNeighbourError {
-    #[error("Invalid neighbour span")]
-    InvalidNeighbourIndex,
     #[error("Invalid neighbour span")]
     InvalidNeighbourSpan(u8),
     #[error("Invalid neighbour orientation")]

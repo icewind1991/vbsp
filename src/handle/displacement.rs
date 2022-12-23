@@ -7,8 +7,7 @@ impl<'a> Handle<'a, DisplacementInfo> {
         self.data
             .edge_neighbours
             .iter()
-            .flat_map(|edge| &edge.sub_neighbours)
-            .filter_map(|sub| sub.as_ref())
+            .flat_map(|edge| edge.iter())
             .map(|sub| Handle::new(self.bsp, sub))
     }
 
