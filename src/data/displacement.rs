@@ -48,14 +48,53 @@ fn test_displacement_bytes() {
 
 static_assertions::const_assert_eq!(size_of::<DisplacementInfo>(), 176);
 
-#[derive(Debug, Clone, BinRead)]
+#[derive(Debug, Clone)]
 pub struct DisplacementNeighbour {
-    sub_neighbours: [DisplacementSubNeighbour; 2],
+    pub sub_neighbours: [Option<DisplacementSubNeighbour>; 2],
 }
 
 impl DisplacementNeighbour {
     pub fn iter(&self) -> impl Iterator<Item = &DisplacementSubNeighbour> {
-        self.sub_neighbours.iter().filter(|sub| sub.is_valid())
+        self.sub_neighbours.iter().filter_map(|sub| sub.as_ref())
+    }
+}
+
+impl BinRead for DisplacementNeighbour {
+    type Args = ();
+
+    fn read_options<R: Read + Seek>(
+        reader: &mut R,
+        options: &ReadOptions,
+        args: Self::Args,
+    ) -> BinResult<Self> {
+        Ok(DisplacementNeighbour {
+            sub_neighbours: [
+                read_option_sub_neighbour(reader, options, args)?,
+                read_option_sub_neighbour(reader, options, args)?,
+            ],
+        })
+    }
+}
+
+fn read_option_sub_neighbour<R: Read + Seek>(
+    reader: &mut R,
+    options: &ReadOptions,
+    args: (),
+) -> BinResult<Option<DisplacementSubNeighbour>> {
+    let neighbour_index = u16::read_options(reader, options, args)?;
+
+    // for non-connected sub-neighbours, the orientations and spans sometimes contain garbage
+    // so we just skip over it
+    if neighbour_index == u16::MAX {
+        reader.seek(SeekFrom::Current(
+            size_of::<DisplacementSubNeighbour>() as i64 - 2,
+        ))?;
+        Ok(None)
+    } else {
+        reader.seek(SeekFrom::Current(-2))?;
+        Ok(Some(DisplacementSubNeighbour::read_options(
+            reader, options, args,
+        )?))
     }
 }
 
@@ -66,7 +105,7 @@ fn test_neighbour_bytes() {
     super::test_read_bytes::<DisplacementNeighbour>();
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, BinRead)]
 pub struct DisplacementSubNeighbour {
     pub neighbour_index: u16,
     /// Orientation of the neighbour relative to us
@@ -74,44 +113,8 @@ pub struct DisplacementSubNeighbour {
     /// How the neighbour fits into us
     pub span: NeighbourSpan,
     /// How we fit into our neighbour
+    #[br(align_after = align_of::<DisplacementSubNeighbour>())]
     pub neighbour_span: NeighbourSpan,
-}
-
-impl DisplacementSubNeighbour {
-    fn is_valid(&self) -> bool {
-        self.neighbour_index != u16::MAX
-    }
-}
-impl BinRead for DisplacementSubNeighbour {
-    type Args = ();
-
-    fn read_options<R: Read + Seek>(
-        reader: &mut R,
-        options: &ReadOptions,
-        args: Self::Args,
-    ) -> BinResult<Self> {
-        let neighbour_index = u16::read_options(reader, options, args)?;
-
-        // for non-connected sub-neighbours, the orientations and spans sometimes contain garbage
-        if neighbour_index == u16::MAX {
-            reader.seek(SeekFrom::Current(4))?;
-            Ok(DisplacementSubNeighbour {
-                neighbour_index,
-                neighbour_orientation: NeighbourOrientation::Ccw0,
-                span: NeighbourSpan::CornerToCorner,
-                neighbour_span: NeighbourSpan::CornerToCorner,
-            })
-        } else {
-            let result = DisplacementSubNeighbour {
-                neighbour_index,
-                neighbour_orientation: NeighbourOrientation::read_options(reader, options, args)?,
-                span: NeighbourSpan::read_options(reader, options, args)?,
-                neighbour_span: NeighbourSpan::read_options(reader, options, args)?,
-            };
-            reader.seek(SeekFrom::Current(1))?;
-            Ok(result)
-        }
-    }
 }
 
 #[test]
