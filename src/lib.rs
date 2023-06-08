@@ -139,7 +139,7 @@ impl<'a> IntoIterator for &'a Leaves {
     type IntoIter = <&'a [Leaf] as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
-        (&self.leaves[..]).iter()
+        self.leaves[..].iter()
     }
 }
 
@@ -452,8 +452,8 @@ impl Bsp {
             "texture_string_tables",
         )?;
         self.validate_indexes(
-            self.texture_string_tables.iter().map(|texture| *texture),
-            &self.texture_string_data.as_bytes(),
+            self.texture_string_tables.iter().copied(),
+            self.texture_string_data.as_bytes(),
             "texture_string_tables",
             "texture_string_data",
         )?;
@@ -467,7 +467,7 @@ impl Bsp {
             self.nodes
                 .iter()
                 .flat_map(|node| node.children)
-                .filter_map(|index| (index >= 0).then(|| index)),
+                .filter_map(|index| (index >= 0).then_some(index)),
             &self.nodes,
             "node",
             "node",
@@ -476,7 +476,7 @@ impl Bsp {
             self.nodes
                 .iter()
                 .flat_map(|node| node.children)
-                .filter_map(|index| (index < 0).then(|| !index)),
+                .filter_map(|index| (index < 0).then_some(!index)),
             &self.leaves,
             "node",
             "leaf",

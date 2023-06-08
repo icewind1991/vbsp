@@ -98,7 +98,7 @@ impl<'a> RawEntity<'a> {
 
     pub fn prop(&self, key: &'static str) -> Result<&'a str, EntityParseError> {
         self.properties()
-            .find_map(|(prop_key, value)| (key == prop_key).then(|| value))
+            .find_map(|(prop_key, value)| (key == prop_key).then_some(value))
             .ok_or(EntityParseError::NoSuchProperty(key))
     }
 

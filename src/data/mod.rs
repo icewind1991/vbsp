@@ -339,7 +339,7 @@ pub struct SurfaceEdge {
 
 impl SurfaceEdge {
     pub fn edge_index(&self) -> u32 {
-        self.edge.abs() as u32
+        self.edge.unsigned_abs()
     }
 
     pub fn direction(&self) -> EdgeDirection {
@@ -374,7 +374,7 @@ pub struct Face {
 
 impl Face {
     pub fn displacement_index(&self) -> Option<i16> {
-        (self.displacement_info >= 0).then(|| self.displacement_info)
+        (self.displacement_info >= 0).then_some(self.displacement_info)
     }
 }
 

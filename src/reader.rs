@@ -74,7 +74,7 @@ impl<R: BinReaderExt + Read> LumpReader<R> {
     }
 
     pub fn read_visdata(&mut self) -> BspResult<VisData> {
-        if (self.length as usize) < size_of::<u32>() * 2 {
+        if self.length < size_of::<u32>() * 2 {
             return Ok(VisData::default());
         }
 
