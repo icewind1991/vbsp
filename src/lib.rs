@@ -513,7 +513,10 @@ impl Bsp {
         source: &'static str,
         target: &'static str,
     ) -> BspResult<()> {
-        let max = indexes.max().unwrap_or_default();
+        let max = match indexes.max() {
+            Some(max) => max,
+            None => return Ok(()),
+        };
         max.try_into()
             .ok()
             .and_then(|index| list.get(index))
