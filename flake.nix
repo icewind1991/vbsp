@@ -80,6 +80,14 @@
               RUSTC_BOOTSTRAP=1 cargo-fuzz $@
             '';
           })
+          (writeShellApplication {
+            name = "cargo-expand";
+            runtimeInputs = [cargo-expand toolchain];
+            text = ''
+              # shellcheck disable=SC2068
+              RUSTC_BOOTSTRAP=1 cargo-expand $@
+            '';
+          })
         ];
       in {
         default = mkShell {
