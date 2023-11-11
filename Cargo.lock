@@ -334,7 +334,7 @@ dependencies = [
  "static_assertions",
  "thiserror",
  "vbsp-derive",
- "zip",
+ "zip-lzma",
 ]
 
 [[package]]
@@ -348,9 +348,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "zip"
+name = "zip-lzma"
 version = "0.6.3"
-source = "git+https://github.com/icewind1991/zip?branch=lzma-decompression#67239e847f4fbe3a5b847707ee3228ac370388f5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b480cb31fccfb2786565c0e0712865fd6f1ea0ea850c50316f643c3948196e63"
 dependencies = [
  "byteorder 1.4.3",
  "crc32fast",

@@ -20,9 +20,9 @@ lzma-rs = "0.2.0"
 binrw = "0.10.0"
 static_assertions = "1.1.0"
 num_enum = "0.5.7"
-vbsp-derive = { path = "derive", version = "*" }
+vbsp-derive = { path = "derive", version = "0.1.0" }
 cgmath = "0.18.0"
-zip = { version = "0.6.3", git = "https://github.com/icewind1991/zip", branch = "lzma-decompression", default-features = false, features = ["lzma"] }
+zip = { package = "zip-lzma", version = "0.6.3", default-features = false, features = ["lzma"] }
 
 [dev-dependencies]
 obj = "0.10"
