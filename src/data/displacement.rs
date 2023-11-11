@@ -1,7 +1,7 @@
 use super::vector::Vector;
 use crate::data::try_read_enum;
 use crate::error::InvalidNeighbourError;
-use binrw::{BinRead, BinResult, ReadOptions};
+use binrw::{BinRead, BinResult, Endian};
 use bitflags::bitflags;
 use num_enum::TryFromPrimitive;
 use std::fmt::Debug;
@@ -60,17 +60,17 @@ impl DisplacementNeighbour {
 }
 
 impl BinRead for DisplacementNeighbour {
-    type Args = ();
+    type Args<'a> = ();
 
     fn read_options<R: Read + Seek>(
         reader: &mut R,
-        options: &ReadOptions,
-        args: Self::Args,
+        endian: Endian,
+        args: Self::Args<'_>,
     ) -> BinResult<Self> {
         Ok(DisplacementNeighbour {
             sub_neighbours: [
-                read_option_sub_neighbour(reader, options, args)?,
-                read_option_sub_neighbour(reader, options, args)?,
+                read_option_sub_neighbour(reader, endian, args)?,
+                read_option_sub_neighbour(reader, endian, args)?,
             ],
         })
     }
@@ -78,10 +78,10 @@ impl BinRead for DisplacementNeighbour {
 
 fn read_option_sub_neighbour<R: Read + Seek>(
     reader: &mut R,
-    options: &ReadOptions,
+    endian: Endian,
     args: (),
 ) -> BinResult<Option<DisplacementSubNeighbour>> {
-    let neighbour_index = u16::read_options(reader, options, args)?;
+    let neighbour_index = u16::read_options(reader, endian, args)?;
 
     // for non-connected sub-neighbours, the orientations and spans sometimes contain garbage
     // so we just skip over it
@@ -93,7 +93,7 @@ fn read_option_sub_neighbour<R: Read + Seek>(
     } else {
         reader.seek(SeekFrom::Current(-2))?;
         Ok(Some(DisplacementSubNeighbour::read_options(
-            reader, options, args,
+            reader, endian, args,
         )?))
     }
 }
@@ -134,16 +134,16 @@ pub enum NeighbourSpan {
 }
 
 impl BinRead for NeighbourSpan {
-    type Args = ();
+    type Args<'a> = ();
 
     fn read_options<R: Read + Seek>(
         reader: &mut R,
-        options: &ReadOptions,
-        args: Self::Args,
+        endian: Endian,
+        args: Self::Args<'_>,
     ) -> BinResult<Self> {
         try_read_enum(
             reader,
-            options,
+            endian,
             args,
             InvalidNeighbourError::InvalidNeighbourSpan,
         )
@@ -160,16 +160,16 @@ pub enum NeighbourOrientation {
 }
 
 impl BinRead for NeighbourOrientation {
-    type Args = ();
+    type Args<'a> = ();
 
     fn read_options<R: Read + Seek>(
         reader: &mut R,
-        options: &ReadOptions,
-        args: Self::Args,
+        endian: Endian,
+        args: Self::Args<'static>,
     ) -> BinResult<Self> {
         try_read_enum(
             reader,
-            options,
+            endian,
             args,
             InvalidNeighbourError::InvalidNeighbourOrientation,
         )
@@ -217,9 +217,11 @@ pub struct DisplacementTriangle {
     pub tags: DisplacementTriangleFlags,
 }
 
+#[derive(BinRead, Debug, Clone, Copy)]
+pub struct DisplacementTriangleFlags(u8);
+
 bitflags! {
-    #[derive(BinRead)]
-    pub struct DisplacementTriangleFlags: u8 {
+    impl DisplacementTriangleFlags: u8 {
         const SURFACE =       0x01;
         const WALKABLE =      0x02;
         const BULDABLE =      0x04;

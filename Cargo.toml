@@ -9,17 +9,17 @@ license = "MIT"
 edition = "2021"
 readme = "README.md"
 exclude = ["*.bsp"]
-rust-version = "1.62.0"
+rust-version = "1.67.0"
 
 [dependencies]
-arrayvec = "0.7.2"
-bitflags = "1.3"
+arrayvec = "0.7.4"
+bitflags = "2.4.1"
 bv = "0.11.1"
-thiserror = "1.0.37"
-lzma-rs = "0.2.0"
-binrw = "0.10.0"
+thiserror = "1.0.50"
+lzma-rs = "0.3.0"
+binrw = "0.13.1"
 static_assertions = "1.1.0"
-num_enum = "0.5.7"
+num_enum = "0.7.1"
 vbsp-derive = { path = "derive", version = "0.1.0", features = ["__vbsp_as_self"] }
 cgmath = "0.18.0"
 zip = { package = "zip-lzma", version = "0.6.3", default-features = false, features = ["lzma"] }

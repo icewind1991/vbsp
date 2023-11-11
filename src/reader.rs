@@ -57,7 +57,8 @@ impl<R: BinReaderExt + Read> LumpReader<R> {
 
     pub fn read<T: BinRead + Debug>(&mut self) -> BspResult<T>
     where
-        T::Args: Default,
+        T::Args<'static>: Default,
+        <T as BinRead>::Args<'static>: Clone,
     {
         // let start = self.inner.stream_position().unwrap() as usize;
         let result = self.inner.read_le()?;

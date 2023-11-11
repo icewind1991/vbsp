@@ -11,10 +11,10 @@ use crate::bspfile::LumpType;
 use crate::{BspResult, StringError};
 use arrayvec::ArrayString;
 use binrw::error::CustomError;
-use binrw::{BinRead, BinResult, ReadOptions};
+use binrw::{BinRead, BinResult, Endian};
 use bitflags::bitflags;
 use bv::BitVec;
-use num_enum::TryFromPrimitive;
+use num_enum::{TryFromPrimitive, TryFromPrimitiveError};
 use std::borrow::Cow;
 use std::cmp::min;
 use std::fmt;
@@ -30,7 +30,8 @@ use zip::ZipArchive;
 #[cfg(test)]
 fn test_read_bytes<T: BinRead>()
 where
-    T::Args: Default,
+    T::Args<'static>: Default,
+    <T as BinRead>::Args<'static>: Clone,
 {
     use binrw::BinReaderExt;
     use std::any::type_name;
@@ -84,9 +85,11 @@ pub struct LeafFace {
     pub face: u16,
 }
 
+#[derive(BinRead, Debug, Clone, Copy)]
+pub struct TextureFlags(u32);
+
 bitflags! {
-    #[derive(BinRead)]
-    pub struct TextureFlags: u32 {
+    impl TextureFlags: u32 {
         const LIGHT      = 0b0000_0000_0000_0000_0001; // value will hold the light strength
         const SKY2D      = 0b0000_0000_0000_0000_0010; // don't draw, indicate we should skylight + draw 2d sky but don't draw the 3d skybox
         const SKY        = 0b0000_0000_0000_0000_0100; // don't draw, but add the skybox
@@ -129,18 +132,18 @@ impl<const LEN: usize> Display for FixedString<LEN> {
 }
 
 impl<const LEN: usize> BinRead for FixedString<LEN> {
-    type Args = ();
+    type Args<'a> = ();
 
     fn read_options<R: Read + binrw::io::Seek>(
         reader: &mut R,
-        options: &ReadOptions,
-        args: Self::Args,
+        endian: Endian,
+        args: Self::Args<'static>,
     ) -> BinResult<Self> {
         use std::str;
 
         let start = reader.stream_position().unwrap();
 
-        let name_buf = <[u8; LEN]>::read_options(reader, options, args)?;
+        let name_buf = <[u8; LEN]>::read_options(reader, endian, args)?;
 
         let zero_pos =
             name_buf
@@ -269,9 +272,11 @@ impl Brush {
     }
 }
 
+#[derive(BinRead, Debug, Clone, Copy)]
+pub struct BrushFlags(u32);
+
 bitflags! {
-    #[derive(BinRead)]
-    pub struct BrushFlags: u32 {
+    impl BrushFlags: u32 {
         const EMPTY =       	        0; // 	No contents
         const SOLID =       	        0x1; // 	an eye is never valid in a solid
         const WINDOW =      	        0x2; // 	translucent, but not watery (glass)
@@ -475,19 +480,19 @@ impl Packfile {
 
 fn try_read_enum<Enum, Reader, Error, ErrorFn>(
     reader: &mut Reader,
-    options: &ReadOptions,
-    args: <<Enum as TryFromPrimitive>::Primitive as BinRead>::Args,
+    endian: Endian,
+    args: <<Enum as TryFromPrimitive>::Primitive as BinRead>::Args<'static>,
     err_map: ErrorFn,
 ) -> BinResult<Enum>
 where
     Reader: Read + Seek,
-    Enum: TryFromPrimitive,
+    Enum: TryFromPrimitive<Error = TryFromPrimitiveError<Enum>>,
     Enum::Primitive: BinRead,
     ErrorFn: FnOnce(Enum::Primitive) -> Error,
     Error: CustomError + 'static,
 {
     let start = reader.stream_position().unwrap();
-    let raw = <Enum::Primitive>::read_options(reader, options, args)?;
+    let raw = <Enum::Primitive>::read_options(reader, endian, args)?;
 
     Enum::try_from_primitive(raw)
         .map_err(|e| err_map(e.number))

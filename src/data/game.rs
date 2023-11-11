@@ -1,6 +1,6 @@
 use crate::error::UnsupportedLumpVersion;
 use crate::{lzma_decompress_with_header, BspError, FixedString, Vector};
-use binrw::{BinRead, BinReaderExt, BinResult, ReadOptions};
+use binrw::{BinRead, BinReaderExt, BinResult, Endian};
 use bitflags::bitflags;
 use cgmath::{Deg, Quaternion, Rotation3};
 use std::borrow::Cow;
@@ -15,7 +15,10 @@ pub struct GameLumpHeader {
 }
 
 impl GameLumpHeader {
-    pub fn find<T: GameLumpType<Args = (u16,)>>(&self, data: &[u8]) -> Option<Result<T, BspError>> {
+    pub fn find<T: GameLumpType<Args<'static> = (u16,)>>(
+        &self,
+        data: &[u8],
+    ) -> Option<Result<T, BspError>> {
         let (i, lump) = self
             .lumps
             .iter()
@@ -67,9 +70,11 @@ pub struct GameLump {
     pub length: i32,
 }
 
+#[derive(BinRead, Debug, Clone, Copy)]
+pub struct GameLumpFlags(u16);
+
 bitflags! {
-    #[derive(BinRead)]
-    pub struct GameLumpFlags: u16 {
+    impl GameLumpFlags: u16 {
         const COMPRESSED = 0b0000_0000_0000_0000_0001;
     }
 }
@@ -143,18 +148,16 @@ impl StaticPropLump {
 }
 
 impl BinRead for StaticPropLump {
-    type Args = (u16,);
+    type Args<'a> = (u16,);
 
     fn read_options<R: Read + Seek>(
         reader: &mut R,
-        options: &ReadOptions,
-        args: Self::Args,
+        endian: Endian,
+        args: Self::Args<'static>,
     ) -> BinResult<Self> {
         match args.0 {
-            6 => StaticPropLumpV6::read_options(reader, options, ()).map(StaticPropLump::from),
-            7 | 10 => {
-                StaticPropLumpV10::read_options(reader, options, ()).map(StaticPropLump::from)
-            }
+            6 => StaticPropLumpV6::read_options(reader, endian, ()).map(StaticPropLump::from),
+            7 | 10 => StaticPropLumpV10::read_options(reader, endian, ()).map(StaticPropLump::from),
             version => Err(binrw::Error::Custom {
                 err: Box::new(UnsupportedLumpVersion {
                     lump_type: "static props",
@@ -166,13 +169,15 @@ impl BinRead for StaticPropLump {
     }
 }
 
+#[derive(BinRead, Debug, Clone, Copy)]
+pub struct StaticPropLumpFlags(u32);
+
 bitflags! {
-    #[derive(BinRead)]
-    pub struct StaticPropLumpFlags: u32 {
-        const FLAG_FADES	= 0x1;
-        const USE_LIGHTING_ORIGIN	= 0x2;
+    impl StaticPropLumpFlags: u32 {
+        const FLAG_FADES = 0x1;
+        const USE_LIGHTING_ORIGIN = 0x2;
         const NO_DRAW = 0x4;
-        const IGNORE_NORMALS	= 0x8;
+        const IGNORE_NORMALS = 0x8;
         const NO_SHADOW	= 0x10;
         const SCREEN_SPACE_FADE	= 0x20;
         const NO_PER_VERTEX_LIGHTING = 0x40;
@@ -224,9 +229,11 @@ fn test_static_prop_lump_v6_bytes() {
     super::test_read_bytes::<StaticPropLumpV6>();
 }
 
+#[derive(BinRead, Debug, Clone, Copy)]
+struct StaticPropLumpFlagsV6(u8);
+
 bitflags! {
-    #[derive(BinRead)]
-    struct StaticPropLumpFlagsV6: u8 {
+    impl StaticPropLumpFlagsV6: u8 {
         const FLAG_FADES	= 0x1;
         const USE_LIGHTING_ORIGIN	= 0x2;
         const NO_DRAW = 0x4;
