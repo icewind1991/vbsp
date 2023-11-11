@@ -9,6 +9,7 @@ license = "MIT"
 edition = "2021"
 readme = "README.md"
 exclude = ["*.bsp"]
+rust-version = "1.62.0"
 
 [dependencies]
 arrayvec = "0.7.2"
