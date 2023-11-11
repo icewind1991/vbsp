@@ -71,8 +71,15 @@
           cargo-outdated
           cargo-audit
           cargo-msrv
-          cargo-fuzz
           cargo-semver-checks
+          (writeShellApplication {
+            name = "cargo-fuzz";
+            runtimeInputs = [cargo-fuzz toolchain];
+            text = ''
+              # shellcheck disable=SC2068
+              RUSTC_BOOTSTRAP=1 cargo-fuzz $@
+            '';
+          })
         ];
       in {
         default = mkShell {
