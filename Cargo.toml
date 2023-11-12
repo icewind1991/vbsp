@@ -20,7 +20,7 @@ lzma-rs = "0.3.0"
 binrw = "0.13.1"
 static_assertions = "1.1.0"
 num_enum = "0.7.1"
-vbsp-derive = { path = "derive", version = "0.1.0", features = ["__vbsp_as_self"] }
+vbsp-derive = { path = "derive", version = "0.1.0", features = ["__vbsp_as_self"], optional = true }
 cgmath = "0.18.0"
 zip = { package = "zip-lzma", version = "0.6.3", default-features = false, features = ["lzma"] }
 
@@ -28,8 +28,10 @@ zip = { package = "zip-lzma", version = "0.6.3", default-features = false, featu
 obj = "0.10"
 main_error = "0.1.2"
 
-[features]
-bench = []
-
 [profile.dev]
 opt-level = 2
+
+[features]
+default = ["typed_entities"]
+typed_entities = ["vbsp-derive"]
+bench = []

@@ -18,5 +18,8 @@ proc-macro2 = "1.0.69"
 structmeta = "0.2.0"
 merge = "0.1.0"
 
+[dev-dependencies]
+vbsp = { version = "0.2.0", path = "..", default-features = false }
+
 [features]
 __vbsp_as_self = []
