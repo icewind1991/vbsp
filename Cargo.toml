@@ -23,6 +23,8 @@ num_enum = "0.7.1"
 vbsp-derive = { path = "derive", version = "0.1.0", features = ["__vbsp_as_self"], optional = true }
 cgmath = "0.18.0"
 zip = { package = "zip-lzma", version = "0.6.3", default-features = false, features = ["lzma"] }
+itertools = "0.12.0"
+ahash = "0.8.6"
 
 [dev-dependencies]
 obj = "0.10"

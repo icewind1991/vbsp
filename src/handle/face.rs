@@ -1,9 +1,10 @@
 use super::Handle;
 use crate::data::*;
+use itertools::Either;
 
 impl<'a> Handle<'a, Face> {
     /// Get the texture of the face
-    pub fn texture(&self) -> Handle<TextureInfo> {
+    pub fn texture(&self) -> Handle<'a, TextureInfo> {
         self.bsp
             .textures_info
             .get(self.texture_info as usize)
@@ -78,5 +79,15 @@ impl<'a> Handle<'a, Face> {
 
     pub fn displacement(&self) -> Option<Handle<'a, DisplacementInfo>> {
         self.bsp.displacement(self.displacement_info as usize)
+    }
+
+    /// Get the vertex positions for the face
+    ///
+    /// This either calculates the displacement or normal triangulation depending on the face
+    pub fn vertex_positions(&self) -> impl Iterator<Item = Vector> + 'a {
+        self.displacement()
+            .map(|displacement| displacement.triangulated_displaced_vertices())
+            .map(Either::Left)
+            .unwrap_or_else(|| Either::Right(self.triangulate().flatten()))
     }
 }

@@ -4,7 +4,10 @@ mod game;
 
 use crate::data::*;
 use crate::Bsp;
+use ahash::RandomState;
 use std::fmt::{Debug, Formatter};
+use std::hash::BuildHasher;
+use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 
 /// A handle represents a data structure in the bsp file and the bsp file containing it.
@@ -63,18 +66,6 @@ impl<'a> Handle<'a, Model> {
     }
 }
 
-impl<'a> Handle<'a, TextureInfo> {
-    /// Get the texture data references by the texture
-    pub fn texture(&self) -> Handle<'a, TextureData> {
-        let texture = self
-            .bsp
-            .textures_data
-            .get(self.data.texture_data_index as usize)
-            .unwrap();
-        Handle::new(self.bsp, texture)
-    }
-}
-
 impl Handle<'_, Node> {
     /// Get the plane splitting this node
     pub fn plane(&self) -> Handle<'_, Plane> {
@@ -130,6 +121,25 @@ impl<'a> Handle<'a, TextureInfo> {
     pub fn name(&self) -> &'a str {
         self.texture_data().name()
     }
+
+    /// Get a color that is unique but determistic for this texture
+    pub fn debug_color(&self) -> [u8; 3] {
+        self.texture_data().debug_color()
+    }
+
+    pub fn u(&self, pos: Vector) -> f32 {
+        (self.texture_scale[0] * pos.x
+            + self.texture_scale[1] * pos.y
+            + self.texture_scale[2] * pos.z)
+            / self.texture_data().height as f32
+    }
+
+    pub fn v(&self, pos: Vector) -> f32 {
+        (self.texture_transform[0] * pos.x
+            + self.texture_transform[1] * pos.y
+            + self.texture_transform[2] * pos.z)
+            / self.texture_data().width as f32
+    }
 }
 
 impl<'a> Handle<'a, TextureData> {
@@ -141,5 +151,13 @@ impl<'a> Handle<'a, TextureData> {
         } else {
             part
         }
+    }
+
+    /// Get a color that is unique but determistic for this texture
+    pub fn debug_color(&self) -> [u8; 3] {
+        let mut name_hasher = RandomState::with_seeds(0, 0, 0, 0).build_hasher();
+        self.name().hash(&mut name_hasher);
+        let name_hash = name_hasher.finish().to_be_bytes();
+        [name_hash[0], name_hash[1], name_hash[2]]
     }
 }
