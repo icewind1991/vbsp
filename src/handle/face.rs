@@ -49,15 +49,12 @@ impl<'a> Handle<'a, Face> {
     pub fn is_visible(&self) -> bool {
         let texture = self.texture();
         !texture.flags.intersects(
-            TextureFlags::LIGHT
-                | TextureFlags::SKY2D
+            TextureFlags::SKY2D
                 | TextureFlags::SKY
-                | TextureFlags::WARP
                 | TextureFlags::TRIGGER
                 | TextureFlags::HINT
                 | TextureFlags::SKIP
-                | TextureFlags::NODRAW
-                | TextureFlags::HITBOX,
+                | TextureFlags::NODRAW,
         )
     }
 
