@@ -131,14 +131,18 @@ impl<'a> Handle<'a, TextureInfo> {
         (self.texture_scale[0] * pos.x
             + self.texture_scale[1] * pos.y
             + self.texture_scale[2] * pos.z)
-            / self.texture_data().height as f32
+            / self.texture_data().width as f32
     }
 
     pub fn v(&self, pos: Vector) -> f32 {
         (self.texture_transform[0] * pos.x
             + self.texture_transform[1] * pos.y
             + self.texture_transform[2] * pos.z)
-            / self.texture_data().width as f32
+            / self.texture_data().height as f32
+    }
+
+    pub fn uv(&self, pos: Vector) -> [f32; 2] {
+        [self.u(pos), self.v(pos)]
     }
 }
 
