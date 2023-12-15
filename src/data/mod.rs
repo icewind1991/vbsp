@@ -172,8 +172,8 @@ impl<const LEN: usize> BinRead for FixedString<LEN> {
 
 #[derive(Debug, Clone, BinRead)]
 pub struct TextureInfo {
-    pub texture_scale: [f32; 4],
-    pub texture_transform: [f32; 4],
+    pub texture_transforms_u: [f32; 4],
+    pub texture_transform_v: [f32; 4],
     pub light_map_scale: [f32; 4],
     pub light_map_transform: [f32; 4],
     pub flags: TextureFlags,

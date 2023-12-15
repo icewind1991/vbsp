@@ -64,6 +64,10 @@ impl<'a> Handle<'a, Model> {
             .iter()
             .map(move |face| Handle::new(bsp, face))
     }
+
+    pub fn textures(&self) -> impl Iterator<Item = Handle<'_, TextureInfo>> {
+        self.bsp.textures()
+    }
 }
 
 impl Handle<'_, Node> {
@@ -128,16 +132,18 @@ impl<'a> Handle<'a, TextureInfo> {
     }
 
     pub fn u(&self, pos: Vector) -> f32 {
-        (self.texture_scale[0] * pos.x
-            + self.texture_scale[1] * pos.y
-            + self.texture_scale[2] * pos.z)
+        (self.texture_transforms_u[0] * pos.x
+            + self.texture_transforms_u[1] * pos.y
+            + self.texture_transforms_u[2] * pos.z
+            + self.texture_transforms_u[3])
             / self.texture_data().width as f32
     }
 
     pub fn v(&self, pos: Vector) -> f32 {
-        (self.texture_transform[0] * pos.x
-            + self.texture_transform[1] * pos.y
-            + self.texture_transform[2] * pos.z)
+        (self.texture_transform_v[0] * pos.x
+            + self.texture_transform_v[1] * pos.y
+            + self.texture_transform_v[2] * pos.z
+            + self.texture_transform_v[3])
             / self.texture_data().height as f32
     }
 
