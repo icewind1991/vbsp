@@ -126,7 +126,7 @@ impl<'a> Handle<'a, TextureInfo> {
         self.texture_data().name()
     }
 
-    /// Get a color that is unique but determistic for this texture
+    /// Get a color that is unique but deterministic for this texture
     pub fn debug_color(&self) -> [u8; 3] {
         self.texture_data().debug_color()
     }
