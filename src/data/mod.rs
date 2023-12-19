@@ -476,6 +476,20 @@ impl Packfile {
         entry.read_exact(&mut buff)?;
         Ok(Some(buff))
     }
+
+    pub fn has(&self, name: &str) -> BspResult<bool> {
+        let mut zip = self.zip.lock().unwrap();
+        let result = match zip.by_name(name) {
+            Ok(_) => Ok(true),
+            Err(ZipError::FileNotFound) => {
+                return Ok(false);
+            }
+            Err(e) => {
+                return Err(e.into());
+            }
+        };
+        result
+    }
 }
 
 fn try_read_enum<Enum, Reader, Error, ErrorFn>(
