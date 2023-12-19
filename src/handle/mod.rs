@@ -140,10 +140,10 @@ impl<'a> Handle<'a, TextureInfo> {
     }
 
     pub fn v(&self, pos: Vector) -> f32 {
-        (self.texture_transform_v[0] * pos.x
-            + self.texture_transform_v[1] * pos.y
-            + self.texture_transform_v[2] * pos.z
-            + self.texture_transform_v[3])
+        (self.texture_transforms_v[0] * pos.x
+            + self.texture_transforms_v[1] * pos.y
+            + self.texture_transforms_v[2] * pos.z
+            + self.texture_transforms_v[3])
             / self.texture_data().height as f32
     }
 
