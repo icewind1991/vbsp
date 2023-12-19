@@ -467,7 +467,7 @@ impl Bsp {
             self.nodes
                 .iter()
                 .flat_map(|node| node.children)
-                .filter_map(|index| (index >= 0).then_some(index)),
+                .filter(|index| *index >= 0),
             &self.nodes,
             "node",
             "node",
