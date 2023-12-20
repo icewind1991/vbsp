@@ -191,6 +191,7 @@ mod typed {
     use vbsp_derive::Entity;
 
     #[derive(Debug, Clone, Entity)]
+    #[non_exhaustive]
     pub enum Entity<'a> {
         #[entity(name = "point_spotlight")]
         SpotLight(SpotLight),
@@ -220,6 +221,12 @@ mod typed {
         ObserverPoint(ObserverPoint<'a>),
         #[entity(name = "func_brush")]
         Brush(BrushEntity<'a>),
+        #[entity(name = "func_illusionary")]
+        BrushIllusionary(BrushEntity<'a>),
+        #[entity(name = "func_wall")]
+        BrushWall(BrushEntity<'a>),
+        #[entity(name = "func_wall_toggle")]
+        BrushWallToggle(BrushEntity<'a>),
         #[entity(name = "item_ammopack_small")]
         AmmoPackSmall(AmmoPack),
         #[entity(name = "item_ammopack_medium")]
