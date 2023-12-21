@@ -1,6 +1,6 @@
 [package]
 name = "vbsp"
-version = "0.5.0"
+version = "0.4.1"
 authors = ["Robin Appelman <robin@icewind.nl>"]
 homepage = "https://github.com/icewind1991/vbsp"
 repository = "https://github.com/icewind1991/vbsp"
