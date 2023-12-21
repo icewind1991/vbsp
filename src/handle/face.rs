@@ -68,7 +68,7 @@ impl<'a> Handle<'a, Face> {
         let mut b = vertices.next().expect("face with <3 points");
 
         vertices.map(move |c| {
-            let points = [a.position, b.position, c.position];
+            let points = [c.position, b.position, a.position];
             b = c;
             points
         })

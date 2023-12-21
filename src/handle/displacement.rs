@@ -94,9 +94,9 @@ impl<'a> Handle<'a, DisplacementInfo> {
                     vertices[index(x, y)],
                     vertices[index(x + 1, y)],
                     vertices[index(x, y + 1)],
-                    vertices[index(x, y + 1)],
-                    vertices[index(x + 1, y + 1)],
                     vertices[index(x + 1, y)],
+                    vertices[index(x + 1, y + 1)],
+                    vertices[index(x, y + 1)],
                 ]
             })
     }
