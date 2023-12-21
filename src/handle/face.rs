@@ -87,4 +87,8 @@ impl<'a> Handle<'a, Face> {
             .map(Either::Left)
             .unwrap_or_else(|| Either::Right(self.triangulate().flatten()))
     }
+
+    pub fn normal(&self) -> Vector {
+        self.bsp.plane(self.plane_num as usize).unwrap().normal
+    }
 }

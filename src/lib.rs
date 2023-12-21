@@ -155,6 +155,7 @@ impl<'a> IntoIterator for &'a mut Leaves {
 // TODO: Store all the allocated objects inline to improve cache usage
 /// A parsed bsp file
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct Bsp {
     pub header: Header,
     pub entities: Entities,
@@ -179,6 +180,8 @@ pub struct Bsp {
     pub displacements: Vec<DisplacementInfo>,
     pub displacement_vertices: Vec<DisplacementVertex>,
     pub displacement_triangles: Vec<DisplacementTriangle>,
+    vertex_normals: Vec<VertNormal>,
+    vertex_normal_indices: Vec<VertNormalIndex>,
     pub static_props: PropStaticGameLump,
     pub pack: Packfile,
 }
@@ -253,6 +256,12 @@ impl Bsp {
         let displacement_triangles = bsp_file
             .lump_reader(LumpType::DisplacementTris)?
             .read_vec(|r| r.read())?;
+        let vertex_normals = bsp_file
+            .lump_reader(LumpType::VertNormals)?
+            .read_vec(|r| r.read())?;
+        let vertex_normal_indices = bsp_file
+            .lump_reader(LumpType::VertNormalIndices)?
+            .read_vec(|r| r.read())?;
         let game_lumps: GameLumpHeader = bsp_file.lump_reader(LumpType::GameLump)?.read()?;
         let pack = Packfile::read(bsp_file.lump_reader(LumpType::PakFile)?.into_data())?;
 
@@ -284,6 +293,8 @@ impl Bsp {
             displacements,
             displacement_vertices,
             displacement_triangles,
+            vertex_normals,
+            vertex_normal_indices,
             static_props,
             pack,
         };
@@ -486,6 +497,12 @@ impl Bsp {
             &self.static_props.dict.name,
             "static props",
             "static prop models",
+        )?;
+        self.validate_indexes(
+            self.vertex_normal_indices.iter().map(|i| i.index),
+            &self.vertex_normals,
+            "vertex normal indices",
+            "vertex normals",
         )?;
 
         if self.nodes.is_empty() {

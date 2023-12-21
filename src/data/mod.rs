@@ -425,6 +425,16 @@ impl VisData {
     }
 }
 
+#[derive(Debug, Clone, BinRead)]
+pub struct VertNormal {
+    pub normal: f32,
+}
+
+#[derive(Debug, Clone, BinRead)]
+pub struct VertNormalIndex {
+    pub index: i16,
+}
+
 pub struct Packfile {
     zip: Mutex<ZipArchive<Cursor<Vec<u8>>>>,
 }
