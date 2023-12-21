@@ -500,10 +500,6 @@ impl Packfile {
         };
         result
     }
-
-    pub fn into_zip(self) -> Mutex<ZipArchive<Cursor<Vec<u8>>>> {
-        self.zip
-    }
 }
 
 fn try_read_enum<Enum, Reader, Error, ErrorFn>(
