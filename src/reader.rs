@@ -28,8 +28,9 @@ impl<'a> LumpReader<Cursor<Cow<'a, [u8]>>> {
 
 impl<R: BinReaderExt + Read> LumpReader<R> {
     pub fn read_entities(&mut self) -> BspResult<Entities> {
-        let mut entities = String::with_capacity(self.length);
-        self.inner.read_to_string(&mut entities)?;
+        let mut data: Vec<u8> = Vec::with_capacity(self.length);
+        self.inner.read_exact(&mut data)?;
+        let entities = String::from_utf8(data).map_err(|e| StringError::from(e.utf8_error()))?;
         Ok(Entities { entities })
     }
 

@@ -3,3 +3,5 @@ target
 *.obj
 result
 .direnv
+*.log
+*.vmf
