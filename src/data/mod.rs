@@ -1,11 +1,13 @@
 mod displacement;
 mod entity;
 mod game;
+mod prop;
 mod vector;
 
 pub use self::displacement::*;
 pub use self::entity::*;
 pub use self::game::*;
+pub use self::prop::PropPlacement;
 pub use self::vector::*;
 use crate::bspfile::LumpType;
 use crate::{BspResult, StringError};
