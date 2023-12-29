@@ -1,8 +1,8 @@
 use crate::error::UnsupportedLumpVersion;
-use crate::{lzma_decompress_with_header, BspError, FixedString, Vector};
+use crate::{lzma_decompress_with_header, Angles, BspError, FixedString, Vector};
 use binrw::{BinRead, BinReaderExt, BinResult, Endian};
 use bitflags::bitflags;
-use cgmath::{Deg, Quaternion, Rotation3};
+use cgmath::Quaternion;
 use std::borrow::Cow;
 use std::io::{Cursor, Read, Seek};
 use std::mem::size_of;
@@ -121,7 +121,7 @@ pub struct StaticPropLumps {
 #[derive(Debug, Clone)]
 pub struct StaticPropLump {
     pub origin: Vector,
-    angles: [f32; 3],
+    angles: Angles,
     pub prop_type: u16,
     pub first_leaf: u16,
     pub leaf_count: u16,
@@ -140,10 +140,7 @@ pub struct StaticPropLump {
 impl StaticPropLump {
     /// Get the rotation of the prop as quaternion
     pub fn rotation(&self) -> Quaternion<f32> {
-        // angles are applied in roll, pitch, yaw order
-        Quaternion::from_angle_y(Deg(self.angles[1]))
-            * Quaternion::from_angle_x(Deg(self.angles[0]))
-            * Quaternion::from_angle_z(Deg(self.angles[2]))
+        self.angles.as_quaternion()
     }
 }
 
@@ -209,7 +206,7 @@ impl From<StaticPropLumpFlagsV6> for StaticPropLumpFlags {
 #[derive(BinRead)]
 struct StaticPropLumpV6 {
     pub origin: Vector,
-    pub angles: [f32; 3],
+    pub angles: Angles,
     pub prop_type: u16,
     pub first_leaf: u16,
     pub leaf_count: u16,
@@ -249,7 +246,7 @@ bitflags! {
 #[derive(BinRead)]
 struct StaticPropLumpV10 {
     pub origin: Vector,
-    pub angles: [f32; 3],
+    pub angles: Angles,
     pub prop_type: u16,
     pub first_leaf: u16,
     pub leaf_count: u16,

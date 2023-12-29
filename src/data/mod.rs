@@ -10,13 +10,17 @@ pub use self::game::*;
 pub use self::prop::PropPlacement;
 pub use self::vector::*;
 use crate::bspfile::LumpType;
+use crate::error::EntityParseError;
 use crate::{BspResult, StringError};
 use arrayvec::ArrayString;
 use binrw::error::CustomError;
 use binrw::{BinRead, BinResult, Endian};
 use bitflags::bitflags;
 use bv::BitVec;
+use cgmath::{Deg, Quaternion, Rotation3};
 use num_enum::{TryFromPrimitive, TryFromPrimitiveError};
+use serde::de::{Error, Unexpected};
+use serde::{Deserialize, Deserializer};
 use std::borrow::Cow;
 use std::cmp::min;
 use std::fmt;
@@ -24,6 +28,7 @@ use std::fmt::{Debug, Display, Formatter};
 use std::io::{Cursor, Read, Seek};
 use std::mem::{align_of, size_of};
 use std::ops::Index;
+use std::str::FromStr;
 use std::sync::Mutex;
 use zip::result::ZipError;
 use zip::ZipArchive;
@@ -530,4 +535,43 @@ where
             pos: start,
             err: Box::new(e),
         })
+}
+
+#[derive(Debug, Copy, Clone, BinRead)]
+pub struct Angles {
+    pitch: f32,
+    yaw: f32,
+    roll: f32,
+}
+
+impl<'de> Deserialize<'de> for Angles {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let str = <&str>::deserialize(deserializer)?;
+        str.parse()
+            .map_err(|_| D::Error::invalid_value(Unexpected::Other(str), &"a list of angles"))
+    }
+}
+
+impl FromStr for Angles {
+    type Err = EntityParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut floats = s.split(' ').map(f32::from_str);
+        let pitch = floats.next().ok_or(EntityParseError::ElementCount)??;
+        let yaw = floats.next().ok_or(EntityParseError::ElementCount)??;
+        let roll = floats.next().ok_or(EntityParseError::ElementCount)??;
+        Ok(Angles { pitch, yaw, roll })
+    }
+}
+
+impl Angles {
+    fn as_quaternion(&self) -> Quaternion<f32> {
+        // angles are applied in roll, pitch, yaw order
+        Quaternion::from_angle_y(Deg(self.yaw))
+            * Quaternion::from_angle_x(Deg(self.pitch))
+            * Quaternion::from_angle_z(Deg(self.roll))
+    }
 }

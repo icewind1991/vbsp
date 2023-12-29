@@ -1,12 +1,14 @@
 use crate::error::EntityParseError;
 use binrw::BinRead;
 use cgmath::Vector3;
+use serde::de::{Error, Unexpected};
+use serde::{Deserialize, Deserializer};
 use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::ops::{Add, Mul, Sub};
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Copy, BinRead)]
+#[derive(Debug, Clone, Copy, BinRead, Default)]
 pub struct Vector {
     pub x: f32,
     pub y: f32,
@@ -108,5 +110,16 @@ impl FromStr for Vector {
 impl From<Vector> for Vector3<f32> {
     fn from(v: Vector) -> Self {
         Vector3::new(v.x, v.y, v.z)
+    }
+}
+
+impl<'de> Deserialize<'de> for Vector {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let str = <&str>::deserialize(deserializer)?;
+        str.parse()
+            .map_err(|_| D::Error::invalid_value(Unexpected::Other(str), &"a vector"))
     }
 }

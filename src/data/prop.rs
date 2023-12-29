@@ -1,5 +1,5 @@
 use crate::{Handle, PropDynamic, PropDynamicOverride, StaticPropLump, Vector};
-use cgmath::{Deg, Quaternion, Rotation3};
+use cgmath::Quaternion;
 
 #[derive(Debug, Clone)]
 pub struct PropPlacement<'a> {
@@ -22,17 +22,14 @@ impl<'a> Handle<'a, StaticPropLump> {
     }
 }
 
-fn rotation(angles: [f32; 3]) -> Quaternion<f32> {
-    Quaternion::from_angle_y(Deg(angles[1]))
-        * Quaternion::from_angle_x(Deg(angles[0]))
-        * Quaternion::from_angle_z(Deg(angles[2]))
-}
-
 impl<'a> PropDynamic<'a> {
     pub fn as_prop_placement(&self) -> PropPlacement<'a> {
+        if self.model.contains("slide_large") | self.model.contains("resup") {
+            // dbg!(self);
+        }
         PropPlacement {
             model: self.model,
-            rotation: rotation(self.angles),
+            rotation: self.angles.as_quaternion(),
             scale: self.scale,
             origin: self.origin,
             skin: 0,
@@ -44,7 +41,7 @@ impl<'a> PropDynamicOverride<'a> {
     pub fn as_prop_placement(&self) -> PropPlacement<'a> {
         PropPlacement {
             model: self.model,
-            rotation: rotation(self.angles),
+            rotation: self.angles.as_quaternion(),
             scale: self.scale,
             origin: self.origin,
             skin: 0,
