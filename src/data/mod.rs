@@ -208,7 +208,7 @@ pub struct Node {
     pub mins: [i16; 3],
     pub maxs: [i16; 3],
     pub first_face: u16,
-    pub face_cound: u16,
+    pub face_count: u16,
     pub area: i16,
     pub padding: i16,
 }
