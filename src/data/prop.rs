@@ -24,9 +24,6 @@ impl<'a> Handle<'a, StaticPropLump> {
 
 impl<'a> PropDynamic<'a> {
     pub fn as_prop_placement(&self) -> PropPlacement<'a> {
-        if self.model.contains("slide_large") | self.model.contains("resup") {
-            // dbg!(self);
-        }
         PropPlacement {
             model: self.model,
             rotation: self.angles.as_quaternion(),
