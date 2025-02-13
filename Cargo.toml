@@ -36,8 +36,12 @@ criterion = "0.5.1"
 opt-level = 2
 
 [features]
-default = ["basic"]
+default = [
+	"basic",
+	"css",
+]
 basic = []
+css = []
 
 [[bench]]
 name = "bench"
