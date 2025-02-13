@@ -9,6 +9,8 @@ use vdf_reader::VdfError;
 
 #[cfg(feature = "basic")]
 pub mod basic;
+#[cfg(feature = "css")]
+pub mod css;
 
 #[derive(Clone)]
 pub struct Entities {
