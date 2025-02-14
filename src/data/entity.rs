@@ -135,6 +135,7 @@ impl FromStrProp for u32 {}
 impl FromStrProp for i32 {}
 impl FromStrProp for Color {}
 impl FromStrProp for Vector {}
+impl FromStrProp for LightColor {}
 
 impl<T: FromStrProp> EntityProp<'_> for T
 where
