@@ -103,6 +103,9 @@ impl FromStr for Vector {
         let x = floats.next().ok_or(EntityParseError::ElementCount)??;
         let y = floats.next().ok_or(EntityParseError::ElementCount)??;
         let z = floats.next().ok_or(EntityParseError::ElementCount)??;
+        if floats.next().is_some() {
+            return Err(EntityParseError::ElementCount);
+        }
         Ok(Vector { x, y, z })
     }
 }
