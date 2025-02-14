@@ -275,9 +275,15 @@ impl<'de> Deserialize<'de> for LightColor {
     }
 }
 
+pub(crate) fn bool_from_int<'de, D: Deserializer<'de>>(deserializer: D) -> Result<bool, D::Error> {
+    let int = u8::deserialize(deserializer)?;
+    Ok(int != 0)
+}
+
 pub use typed::*;
 
 mod typed {
+    use crate::bool_from_int;
     use crate::{Angles, Color, LightColor, Vector};
     use serde::{Deserialize, Deserializer};
 
@@ -933,10 +939,5 @@ mod typed {
         pub model: &'a str,
         #[serde(rename = "startactive", deserialize_with = "bool_from_int")]
         pub start_active: bool,
-    }
-
-    fn bool_from_int<'de, D: Deserializer<'de>>(deserializer: D) -> Result<bool, D::Error> {
-        let int = u8::deserialize(deserializer)?;
-        Ok(int > 0)
     }
 }
