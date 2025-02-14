@@ -114,7 +114,7 @@ impl<'a> RawEntity<'a> {
         Some(T::parse(self.prop(key)?))
     }
 
-    pub fn parse(&self) -> Result<Entity<'a>, VdfError> {
+    pub fn parse<E: Deserialize<'a>>(&self) -> Result<E, VdfError> {
         vdf_reader::from_str(self.buf)
     }
 }
