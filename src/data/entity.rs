@@ -26,29 +26,38 @@ impl fmt::Debug for Entities {
         .fmt(f)
     }
 }
+pub struct EntitiesIter<'a> {
+    buf: &'a str,
+}
+
+impl<'a> Iterator for EntitiesIter<'a> {
+    type Item = RawEntity<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let start = self.buf.find('{')?;
+        let end = start + self.buf[start..].find('}')?;
+
+        let out = &self.buf[start..end + 1];
+
+        self.buf = &self.buf[end + 1..];
+
+        Some(RawEntity { buf: out })
+    }
+}
+
+impl<'a> IntoIterator for &'a Entities {
+    type Item = RawEntity<'a>;
+
+    type IntoIter = EntitiesIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
 
 impl Entities {
-    pub fn iter(&self) -> impl Iterator<Item = RawEntity<'_>> {
-        struct Iter<'a> {
-            buf: &'a str,
-        }
-
-        impl<'a> Iterator for Iter<'a> {
-            type Item = RawEntity<'a>;
-
-            fn next(&mut self) -> Option<Self::Item> {
-                let start = self.buf.find('{')?;
-                let end = start + self.buf[start..].find('}')?;
-
-                let out = &self.buf[start..end + 1];
-
-                self.buf = &self.buf[end + 1..];
-
-                Some(RawEntity { buf: out })
-            }
-        }
-
-        Iter {
+    pub fn iter(&self) -> EntitiesIter {
+        EntitiesIter {
             buf: &self.entities,
         }
     }
