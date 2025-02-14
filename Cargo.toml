@@ -35,4 +35,6 @@ main_error = "0.1.2"
 opt-level = 2
 
 [features]
+default = ["basic"]
 bench = []
+basic = []

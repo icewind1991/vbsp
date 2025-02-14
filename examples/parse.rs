@@ -7,7 +7,7 @@ fn main() -> Result<(), vbsp::BspError> {
     let data = std::fs::read(args.next().expect("No demo file provided"))?;
     let bsp = vbsp::Bsp::read(&data)?;
     for prop in bsp.entities.iter() {
-        match prop.parse::<vbsp::Entity>() {
+        match prop.parse::<vbsp::basic::Entity>() {
             Ok(prop) => {
                 println!("{:#?}", prop)
             }

@@ -1,4 +1,4 @@
-use crate::{Handle, PropDynamic, PropDynamicOverride, StaticPropLump, Vector};
+use crate::{Handle, StaticPropLump, Vector};
 use cgmath::Quaternion;
 
 #[derive(Debug, Clone)]
@@ -22,7 +22,8 @@ impl<'a> Handle<'a, StaticPropLump> {
     }
 }
 
-impl<'a> PropDynamic<'a> {
+#[cfg(feature = "basic")]
+impl<'a> crate::basic::PropDynamic<'a> {
     pub fn as_prop_placement(&self) -> PropPlacement<'a> {
         PropPlacement {
             model: self.model,
@@ -34,7 +35,8 @@ impl<'a> PropDynamic<'a> {
     }
 }
 
-impl<'a> PropDynamicOverride<'a> {
+#[cfg(feature = "basic")]
+impl<'a> crate::basic::PropDynamicOverride<'a> {
     pub fn as_prop_placement(&self) -> PropPlacement<'a> {
         PropPlacement {
             model: self.model,
