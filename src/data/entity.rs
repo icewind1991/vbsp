@@ -1,5 +1,5 @@
 use crate::error::EntityParseError;
-use crate::Vector;
+use crate::{Angles, Vector};
 use serde::de::{Error, Unexpected};
 use serde::{Deserialize, Deserializer};
 use std::fmt;
@@ -134,6 +134,7 @@ impl FromStrProp for f32 {}
 impl FromStrProp for u32 {}
 impl FromStrProp for i32 {}
 impl FromStrProp for Color {}
+impl FromStrProp for Angles {}
 impl FromStrProp for Vector {}
 impl FromStrProp for LightColor {}
 
