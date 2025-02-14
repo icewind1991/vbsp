@@ -102,14 +102,16 @@ impl<'a> RawEntity<'a> {
         Iter { buf: self.buf }
     }
 
-    pub fn prop(&self, key: &'static str) -> Result<&'a str, EntityParseError> {
+    pub fn prop(&self, key: &'static str) -> Option<&'a str> {
         self.properties()
             .find_map(|(prop_key, value)| (key == prop_key).then_some(value))
-            .ok_or(EntityParseError::NoSuchProperty(key))
     }
 
-    pub fn prop_parse<T: EntityProp<'a>>(&self, key: &'static str) -> Result<T, EntityParseError> {
-        T::parse(self.prop(key)?)
+    pub fn prop_parse<T: EntityProp<'a>>(
+        &self,
+        key: &'static str,
+    ) -> Option<Result<T, EntityParseError>> {
+        Some(T::parse(self.prop(key)?))
     }
 
     pub fn parse(&self) -> Result<Entity<'a>, VdfError> {
