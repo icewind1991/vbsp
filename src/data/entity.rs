@@ -1,5 +1,5 @@
 use crate::error::EntityParseError;
-use crate::Vector;
+use crate::{Angles, Vector};
 use serde::de::{Error, Unexpected};
 use serde::{Deserialize, Deserializer};
 use std::fmt;
@@ -133,7 +133,10 @@ impl FromStrProp for u16 {}
 impl FromStrProp for f32 {}
 impl FromStrProp for u32 {}
 impl FromStrProp for i32 {}
+impl FromStrProp for Color {}
+impl FromStrProp for Angles {}
 impl FromStrProp for Vector {}
+impl FromStrProp for LightColor {}
 
 impl<T: FromStrProp> EntityProp<'_> for T
 where
@@ -184,6 +187,21 @@ pub struct Color {
     pub b: u8,
 }
 
+impl FromStr for Color {
+    type Err = EntityParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut floats = s.split(' ').map(u8::from_str);
+        let r = floats.next().ok_or(EntityParseError::ElementCount)??;
+        let g = floats.next().ok_or(EntityParseError::ElementCount)??;
+        let b = floats.next().ok_or(EntityParseError::ElementCount)??;
+        if floats.next().is_some() {
+            return Err(EntityParseError::ElementCount);
+        }
+        Ok(Self { r, g, b })
+    }
+}
+
 impl<'de> Deserialize<'de> for Color {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -213,28 +231,30 @@ impl FromStr for LightColor {
 
     fn from_str(str: &str) -> Result<Self, Self::Err> {
         let mut values = str.split(' ');
-        Ok(LightColor {
-            r: values
-                .next()
-                .ok_or(EntityParseError::ElementCount)?
-                .parse()
-                .map_err(EntityParseError::Int)?,
-            g: values
-                .next()
-                .ok_or(EntityParseError::ElementCount)?
-                .parse()
-                .map_err(EntityParseError::Int)?,
-            b: values
-                .next()
-                .ok_or(EntityParseError::ElementCount)?
-                .parse()
-                .map_err(EntityParseError::Int)?,
-            intensity: values
-                .next()
-                .ok_or(EntityParseError::ElementCount)?
-                .parse()
-                .map_err(EntityParseError::Int)?,
-        })
+        let r = values
+            .next()
+            .ok_or(EntityParseError::ElementCount)?
+            .parse()
+            .map_err(EntityParseError::Int)?;
+        let g = values
+            .next()
+            .ok_or(EntityParseError::ElementCount)?
+            .parse()
+            .map_err(EntityParseError::Int)?;
+        let b = values
+            .next()
+            .ok_or(EntityParseError::ElementCount)?
+            .parse()
+            .map_err(EntityParseError::Int)?;
+        let intensity = values
+            .next()
+            .ok_or(EntityParseError::ElementCount)?
+            .parse()
+            .map_err(EntityParseError::Int)?;
+        if values.next().is_some() {
+            return Err(EntityParseError::ElementCount);
+        }
+        Ok(LightColor { r, g, b, intensity })
     }
 }
 
