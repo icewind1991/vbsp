@@ -111,23 +111,20 @@ impl<'a> RawEntity<'a> {
         Iter { buf: self.buf }
     }
 
-    pub fn prop(&self, key: &'static str) -> Result<&'a str, EntityParseError> {
+    pub fn prop(&self, key: &'static str) -> Option<&'a str> {
         self.properties()
             .find_map(|(prop_key, value)| (key == prop_key).then_some(value))
-            .ok_or(EntityParseError::NoSuchProperty(key))
     }
 
-    pub fn prop_parse<T: EntityProp<'a>>(&self, key: &'static str) -> Result<T, EntityParseError> {
-        T::parse(self.prop(key)?)
+    pub fn prop_parse<T: EntityProp<'a>>(
+        &self,
+        key: &'static str,
+    ) -> Option<Result<T, EntityParseError>> {
+        Some(T::parse(self.prop(key)?))
     }
 
-    pub fn parse(&self) -> Result<Entity<'a>, EntityParseError> {
-        match vdf_reader::from_str(self.buf) {
-            Ok(entity) => Ok(entity),
-            Err(VdfError::UnknownVariant(_)) => Ok(Entity::Unknown(self.clone())),
-            // todo
-            Err(_) => Err(EntityParseError::NoSuchProperty("unknown serde error")),
-        }
+    pub fn parse<E: Deserialize<'a>>(&self) -> Result<E, VdfError> {
+        vdf_reader::from_str(self.buf)
     }
 }
 
@@ -281,7 +278,7 @@ impl<'de> Deserialize<'de> for LightColor {
 pub use typed::*;
 
 mod typed {
-    use crate::{Angles, Color, LightColor, RawEntity, Vector};
+    use crate::{Angles, Color, LightColor, Vector};
     use serde::{Deserialize, Deserializer};
 
     #[derive(Debug, Clone, Deserialize)]
@@ -399,8 +396,6 @@ mod typed {
         #[serde(rename = "func_occluder")]
         #[serde(borrow)]
         Occluder(Occluder<'a>),
-        #[serde(skip)]
-        Unknown(RawEntity<'a>),
     }
 
     #[derive(Debug, Clone, Deserialize)]

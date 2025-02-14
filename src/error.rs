@@ -124,8 +124,6 @@ pub enum InvalidNeighbourError {
 
 #[derive(Debug, Error)]
 pub enum EntityParseError {
-    #[error("no such property: {0}")]
-    NoSuchProperty(&'static str),
     #[error("wrong number of elements")]
     ElementCount,
     #[error(transparent)]
