@@ -231,28 +231,30 @@ impl FromStr for LightColor {
 
     fn from_str(str: &str) -> Result<Self, Self::Err> {
         let mut values = str.split(' ');
-        Ok(LightColor {
-            r: values
-                .next()
-                .ok_or(EntityParseError::ElementCount)?
-                .parse()
-                .map_err(EntityParseError::Int)?,
-            g: values
-                .next()
-                .ok_or(EntityParseError::ElementCount)?
-                .parse()
-                .map_err(EntityParseError::Int)?,
-            b: values
-                .next()
-                .ok_or(EntityParseError::ElementCount)?
-                .parse()
-                .map_err(EntityParseError::Int)?,
-            intensity: values
-                .next()
-                .ok_or(EntityParseError::ElementCount)?
-                .parse()
-                .map_err(EntityParseError::Int)?,
-        })
+        let r = values
+            .next()
+            .ok_or(EntityParseError::ElementCount)?
+            .parse()
+            .map_err(EntityParseError::Int)?;
+        let g = values
+            .next()
+            .ok_or(EntityParseError::ElementCount)?
+            .parse()
+            .map_err(EntityParseError::Int)?;
+        let b = values
+            .next()
+            .ok_or(EntityParseError::ElementCount)?
+            .parse()
+            .map_err(EntityParseError::Int)?;
+        let intensity = values
+            .next()
+            .ok_or(EntityParseError::ElementCount)?
+            .parse()
+            .map_err(EntityParseError::Int)?;
+        if values.next().is_some() {
+            return Err(EntityParseError::ElementCount);
+        }
+        Ok(LightColor { r, g, b, intensity })
     }
 }
 
