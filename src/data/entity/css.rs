@@ -2393,7 +2393,7 @@ pub struct WeaponAk47<'a> {
 #[derive(Debug, Clone, Deserialize)]
 pub struct WeaponAwp<'a> {
     #[serde(default)]
-    pub ammo: Option<u8>,
+    pub ammo: Option<u16>,
     pub angles: Angles,
     #[serde(default)]
     pub fademaxdist: Option<f32>,
@@ -2411,7 +2411,7 @@ pub struct WeaponAwp<'a> {
 }
 #[derive(Debug, Clone, Deserialize)]
 pub struct WeaponDeagle {
-    pub ammo: u8,
+    pub ammo: u16,
     pub angles: Angles,
     pub origin: Vector,
     #[serde(default)]
@@ -2419,7 +2419,7 @@ pub struct WeaponDeagle {
 }
 #[derive(Debug, Clone, Deserialize)]
 pub struct WeaponElite<'a> {
-    pub ammo: u8,
+    pub ammo: u16,
     pub angles: Angles,
     #[serde(default)]
     pub fademaxdist: Option<f32>,
@@ -2437,7 +2437,7 @@ pub struct WeaponElite<'a> {
 }
 #[derive(Debug, Clone, Deserialize)]
 pub struct WeaponFamas {
-    pub ammo: u8,
+    pub ammo: u16,
     pub angles: Angles,
     pub fademaxdist: f32,
     pub fademindist: f32,
@@ -2481,7 +2481,7 @@ pub struct WeaponFlashbang<'a> {
 }
 #[derive(Debug, Clone, Deserialize)]
 pub struct WeaponG3sg1 {
-    pub ammo: u8,
+    pub ammo: u16,
     pub angles: Angles,
     pub fademaxdist: f32,
     pub fademindist: f32,
@@ -2558,7 +2558,7 @@ pub struct WeaponKnife<'a> {
 }
 #[derive(Debug, Clone, Deserialize)]
 pub struct WeaponM249<'a> {
-    pub ammo: u8,
+    pub ammo: u16,
     pub angles: Angles,
     #[serde(default)]
     pub fademaxdist: Option<f32>,
@@ -2622,7 +2622,7 @@ pub struct WeaponM4a1<'a> {
 }
 #[derive(Debug, Clone, Deserialize)]
 pub struct WeaponMac10 {
-    pub ammo: u8,
+    pub ammo: u16,
     pub angles: Angles,
     pub fademaxdist: f32,
     pub fademindist: f32,
@@ -2684,7 +2684,7 @@ pub struct WeaponP90<'a> {
 #[derive(Debug, Clone, Deserialize)]
 pub struct WeaponScout<'a> {
     #[serde(default)]
-    pub ammo: Option<u8>,
+    pub ammo: Option<u16>,
     pub angles: Angles,
     #[serde(default)]
     pub fademaxdist: Option<f32>,
@@ -2704,7 +2704,7 @@ pub struct WeaponScout<'a> {
 }
 #[derive(Debug, Clone, Deserialize)]
 pub struct WeaponSg550 {
-    pub ammo: u8,
+    pub ammo: u16,
     pub angles: Angles,
     pub fademaxdist: f32,
     pub fademindist: f32,
@@ -2735,7 +2735,7 @@ pub struct WeaponSmokegrenade<'a> {
 }
 #[derive(Debug, Clone, Deserialize)]
 pub struct WeaponTmp {
-    pub ammo: u8,
+    pub ammo: u16,
     pub angles: Angles,
     pub fademaxdist: f32,
     pub fademindist: f32,
@@ -2759,7 +2759,7 @@ pub struct WeaponTmp {
 }
 #[derive(Debug, Clone, Deserialize)]
 pub struct WeaponUmp45 {
-    pub ammo: u8,
+    pub ammo: u16,
     pub angles: Angles,
     pub fademaxdist: f32,
     pub fademindist: f32,
@@ -2783,7 +2783,7 @@ pub struct WeaponUmp45 {
 }
 #[derive(Debug, Clone, Deserialize)]
 pub struct WeaponUsp<'a> {
-    pub ammo: u8,
+    pub ammo: u16,
     pub angles: Angles,
     pub origin: Vector,
     pub spawnflags: u32,
