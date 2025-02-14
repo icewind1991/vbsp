@@ -133,6 +133,7 @@ impl FromStrProp for u16 {}
 impl FromStrProp for f32 {}
 impl FromStrProp for u32 {}
 impl FromStrProp for i32 {}
+impl FromStrProp for Color {}
 impl FromStrProp for Vector {}
 
 impl<T: FromStrProp> EntityProp<'_> for T
@@ -182,6 +183,21 @@ pub struct Color {
     pub r: u8,
     pub g: u8,
     pub b: u8,
+}
+
+impl FromStr for Color {
+    type Err = EntityParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut floats = s.split(' ').map(u8::from_str);
+        let r = floats.next().ok_or(EntityParseError::ElementCount)??;
+        let g = floats.next().ok_or(EntityParseError::ElementCount)??;
+        let b = floats.next().ok_or(EntityParseError::ElementCount)??;
+        if floats.next().is_some() {
+            return Err(EntityParseError::ElementCount);
+        }
+        Ok(Self { r, g, b })
+    }
 }
 
 impl<'de> Deserialize<'de> for Color {
