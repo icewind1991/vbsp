@@ -167,9 +167,11 @@ pub enum Entity<'a> {
     #[serde(borrow)]
     KeyframeRope(KeyframeRope<'a>),
     #[serde(rename = "light")]
-    Light(Light),
+    #[serde(borrow)]
+    Light(Light<'a>),
     #[serde(rename = "light_environment")]
-    LightEnvironment(LightEnvironment),
+    #[serde(borrow)]
+    LightEnvironment(LightEnvironment<'a>),
     #[serde(rename = "logic_auto")]
     #[serde(borrow)]
     LogicAuto(LogicAuto<'a>),
@@ -366,7 +368,7 @@ pub struct EnvEntityMaker<'a> {
     pub entitytemplate: &'a str,
     pub onentityspawned: &'a str,
     pub origin: Vector,
-    pub postspawndirection: Color,
+    pub postspawndirection: Vector,
     pub postspawndirectionvariance: f32,
     #[serde(deserialize_with = "bool_from_int")]
     #[serde(default)]
@@ -498,7 +500,7 @@ pub struct EnvShooter<'a> {
     pub delay: u8,
     #[serde(deserialize_with = "bool_from_int")]
     pub disablereceiveshadows: bool,
-    pub gibangles: Color,
+    pub gibangles: Angles,
     #[serde(deserialize_with = "bool_from_int")]
     pub gibgravityscale: bool,
     pub m_flgiblife: f32,
@@ -770,7 +772,7 @@ pub struct FuncBreakable<'a> {
     pub exploderadius: bool,
     #[serde(deserialize_with = "bool_from_int")]
     pub explosion: bool,
-    pub gibdir: Color,
+    pub gibdir: Vector,
     pub health: u16,
     pub material: u8,
     #[serde(deserialize_with = "bool_from_int")]
@@ -823,7 +825,7 @@ pub struct FuncButton<'a> {
     #[serde(deserialize_with = "bool_from_int")]
     pub locked_sound: bool,
     pub model: &'a str,
-    pub movedir: Color,
+    pub movedir: Vector,
     #[serde(default)]
     pub ondamaged: Option<&'a str>,
     #[serde(default)]
@@ -864,7 +866,7 @@ pub struct FuncConveyor<'a> {
     #[serde(deserialize_with = "bool_from_int")]
     pub disableshadows: bool,
     pub model: &'a str,
-    pub movedir: Color,
+    pub movedir: Vector,
     pub renderamt: u8,
     pub rendercolor: Color,
     #[serde(deserialize_with = "bool_from_int")]
@@ -984,7 +986,7 @@ pub struct FuncPhysbox<'a> {
     pub explosion: bool,
     #[serde(deserialize_with = "bool_from_int")]
     pub forcetoenablemotion: bool,
-    pub gibdir: Color,
+    pub gibdir: Vector,
     #[serde(deserialize_with = "bool_from_int")]
     pub health: bool,
     #[serde(deserialize_with = "bool_from_int")]
@@ -999,7 +1001,7 @@ pub struct FuncPhysbox<'a> {
     pub parentname: &'a str,
     #[serde(deserialize_with = "bool_from_int")]
     pub performancemode: bool,
-    pub preferredcarryangles: Color,
+    pub preferredcarryangles: Angles,
     #[serde(deserialize_with = "bool_from_int")]
     pub pressuredelay: bool,
     #[serde(deserialize_with = "bool_from_int")]
@@ -1036,7 +1038,7 @@ pub struct FuncPhysboxMultiplayer<'a> {
     pub explosion: bool,
     #[serde(deserialize_with = "bool_from_int")]
     pub forcetoenablemotion: bool,
-    pub gibdir: Color,
+    pub gibdir: Vector,
     #[serde(deserialize_with = "bool_from_int")]
     pub health: bool,
     pub massscale: f32,
@@ -1049,7 +1051,7 @@ pub struct FuncPhysboxMultiplayer<'a> {
     pub origin: Vector,
     #[serde(deserialize_with = "bool_from_int")]
     pub performancemode: bool,
-    pub preferredcarryangles: Color,
+    pub preferredcarryangles: Angles,
     #[serde(deserialize_with = "bool_from_int")]
     pub pressuredelay: bool,
     #[serde(deserialize_with = "bool_from_int")]
@@ -1214,7 +1216,7 @@ pub struct FuncWaterAnalog<'a> {
     #[serde(default)]
     pub disableshadows: bool,
     pub model: &'a str,
-    pub movedir: Color,
+    pub movedir: Vector,
     pub movedistance: u8,
     pub origin: Vector,
     #[serde(default)]
@@ -1357,9 +1359,9 @@ pub struct KeyframeRope<'a> {
     pub width: u8,
 }
 #[derive(Debug, Clone, Deserialize)]
-pub struct Light {
+pub struct Light<'a> {
     pub _light: Color,
-    pub _lighthdr: Vector,
+    pub _lighthdr: &'a str,
     #[serde(deserialize_with = "bool_from_int")]
     pub _lightscalehdr: bool,
     #[serde(deserialize_with = "bool_from_int")]
@@ -1367,14 +1369,14 @@ pub struct Light {
     pub origin: Vector,
 }
 #[derive(Debug, Clone, Deserialize)]
-pub struct LightEnvironment {
-    pub _ambient: Color,
-    pub _ambienthdr: Vector,
+pub struct LightEnvironment<'a> {
+    pub _ambient: &'a str,
+    pub _ambienthdr: &'a str,
     #[serde(deserialize_with = "bool_from_int")]
     #[serde(default)]
     pub _ambientscalehdr: bool,
-    pub _light: Color,
-    pub _lighthdr: Vector,
+    pub _light: LightColor,
+    pub _lighthdr: &'a str,
     #[serde(deserialize_with = "bool_from_int")]
     #[serde(default)]
     pub _lightscalehdr: bool,
@@ -1833,7 +1835,7 @@ pub struct SkyCamera {
     pub angles: Angles,
     pub fogcolor: Color,
     pub fogcolor2: Color,
-    pub fogdir: Color,
+    pub fogdir: Vector,
     pub fogend: f32,
     pub fogstart: f32,
     pub origin: Vector,
