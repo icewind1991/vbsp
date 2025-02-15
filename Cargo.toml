@@ -30,11 +30,15 @@ vdf-reader = "0.2.0"
 [dev-dependencies]
 obj = "0.10"
 main_error = "0.1.2"
+criterion = "0.5.1"
 
 [profile.dev]
 opt-level = 2
 
 [features]
 default = ["basic"]
-bench = []
 basic = []
+
+[[bench]]
+name = "bench"
+harness = false

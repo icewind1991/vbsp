@@ -1,30 +1,28 @@
-#![feature(test)]
+use criterion::{criterion_group, criterion_main, Criterion};
+use std::hint::black_box;
+use vbsp::{Bsp, Vector};
 
-extern crate test;
+const MAP_BYTES: &[u8] = include_bytes!("../koth_bagel_rc2a.bsp");
 
-mod benches {
-    use test::Bencher;
-    use vbsp::{Bsp, Vector};
+fn from_bytes(c: &mut Criterion) {
+    c.bench_function("parse bsp", |b| {
+        b.iter(|| Bsp::read(black_box(&MAP_BYTES)).unwrap())
+    });
+}
 
-    const MAP_BYTES: &[u8] = include_bytes!("../koth_bagel_rc2a.bsp");
+fn leaf_at(c: &mut Criterion) {
+    let bsp = Bsp::read(&MAP_BYTES).unwrap();
 
-    #[bench]
-    fn from_bytes(b: &mut Bencher) {
+    c.bench_function("get leaf at position", |b| {
         b.iter(|| {
-            Bsp::read(&MAP_BYTES).unwrap();
-        });
-    }
-
-    #[bench]
-    fn leaf_at(b: &mut Bencher) {
-        let bsp = Bsp::read(&MAP_BYTES).unwrap();
-
-        b.iter(|| {
-            test::black_box(bsp.leaf_at(test::black_box(Vector {
+            black_box(bsp.leaf_at(black_box(Vector {
                 x: 0.,
                 y: 0.,
                 z: 0.,
-            })));
+            })))
         });
-    }
+    });
 }
+
+criterion_group!(benches, leaf_at, from_bytes);
+criterion_main!(benches);
