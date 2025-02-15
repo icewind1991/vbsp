@@ -123,7 +123,7 @@ impl<'a> RawEntity<'a> {
         &self,
         key: &'static str,
     ) -> Option<Result<T, EntityParseError>> {
-        Some(T::parse(self.prop(key)?))
+        self.prop(key).map(T::parse)
     }
 
     pub fn parse<E: Deserialize<'a>>(&self) -> Result<E, VdfError> {
