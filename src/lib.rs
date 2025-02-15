@@ -547,20 +547,6 @@ impl Bsp {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::Bsp;
-
-    #[test]
-    fn tf2_file() {
-        use std::fs::read;
-
-        let data = read("koth_bagel_rc2a.bsp").unwrap();
-
-        Bsp::read(&data).unwrap();
-    }
-}
-
 /// LZMA decompression with the header used by source
 fn lzma_decompress_with_header(data: &[u8], expected_length: usize) -> Result<Vec<u8>, BspError> {
     // extra 8 byte because game lumps need some padding for reasons
@@ -596,4 +582,18 @@ fn lzma_decompress_with_header(data: &[u8], expected_length: usize) -> Result<Ve
         });
     }
     Ok(output)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Bsp;
+
+    #[test]
+    fn tf2_file() {
+        use std::fs::read;
+
+        let data = read("koth_bagel_rc2a.bsp").unwrap();
+
+        Bsp::read(&data).unwrap();
+    }
 }

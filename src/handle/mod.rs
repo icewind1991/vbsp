@@ -6,8 +6,6 @@ use crate::data::*;
 use crate::Bsp;
 use ahash::RandomState;
 use std::fmt::{Debug, Formatter};
-use std::hash::BuildHasher;
-use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 
 /// A handle represents a data structure in the bsp file and the bsp file containing it.
@@ -163,11 +161,11 @@ impl<'a> Handle<'a, TextureData> {
         }
     }
 
-    /// Get a color that is unique but determistic for this texture
+    /// Get a color that is unique but deterministic for this texture
     pub fn debug_color(&self) -> [u8; 3] {
-        let mut name_hasher = RandomState::with_seeds(0, 0, 0, 0).build_hasher();
-        self.name().hash(&mut name_hasher);
-        let name_hash = name_hasher.finish().to_be_bytes();
+        let name_hash = RandomState::with_seeds(0, 0, 0, 0)
+            .hash_one(self.name())
+            .to_le_bytes();
         [name_hash[0], name_hash[1], name_hash[2]]
     }
 }
