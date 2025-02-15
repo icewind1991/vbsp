@@ -42,3 +42,7 @@ basic = []
 [[bench]]
 name = "bench"
 harness = false
+
+[[example]]
+name = "parse"
+required-features = ["basic"]

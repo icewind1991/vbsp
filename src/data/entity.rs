@@ -278,6 +278,7 @@ impl<'de> Deserialize<'de> for LightColor {
     }
 }
 
+#[allow(dead_code)]
 pub(crate) fn bool_from_int<'de, D: Deserializer<'de>>(deserializer: D) -> Result<bool, D::Error> {
     let int = u8::deserialize(deserializer)?;
     Ok(int != 0)
