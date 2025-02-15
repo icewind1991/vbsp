@@ -10,7 +10,8 @@
       inputs.flakelight.follows = "flakelight";
     };
   };
-  outputs = { mill-scale, ... }: mill-scale ./. {
-    extraPaths = [./fuzz ./examples ./benches ./koth_bagel_rc2a.bsp];
-  };
+  outputs = {mill-scale, ...}:
+    mill-scale ./. {
+      extraPaths = [./fuzz ./examples ./benches ./koth_bagel_rc2a.bsp];
+    };
 }
