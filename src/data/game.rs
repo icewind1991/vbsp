@@ -153,6 +153,7 @@ impl BinRead for StaticPropLump {
         args: Self::Args<'static>,
     ) -> BinResult<Self> {
         match args.0 {
+            4 => StaticPropLumpV4::read_options(reader, endian, ()).map(StaticPropLump::from),
             5 => StaticPropLumpV5::read_options(reader, endian, ()).map(StaticPropLump::from),
             6 => StaticPropLumpV6::read_options(reader, endian, ()).map(StaticPropLump::from),
             7 | 10 => StaticPropLumpV10::read_options(reader, endian, ()).map(StaticPropLump::from),
@@ -196,6 +197,48 @@ pub enum SolidType {
     Custom,
     Physics,
     Last,
+}
+
+impl From<StaticPropLumpFlagsV4> for StaticPropLumpFlags {
+    fn from(v4: StaticPropLumpFlagsV4) -> Self {
+        StaticPropLumpFlags::from_bits_truncate(v4.bits().into())
+    }
+}
+
+#[derive(BinRead)]
+struct StaticPropLumpV4 {
+    pub origin: Vector,
+    pub angles: Angles,
+    pub prop_type: u16,
+    pub first_leaf: u16,
+    pub leaf_count: u16,
+    pub solid: SolidType,
+    pub flags: StaticPropLumpFlagsV4,
+    pub skin: i32,
+    pub fade_min_distance: f32,
+    pub fade_max_distance: f32,
+    pub lighting_origin: Vector,
+}
+
+#[test]
+fn test_static_prop_lump_v4_bytes() {
+    super::test_read_bytes::<StaticPropLumpV4>();
+}
+
+#[derive(BinRead, Debug, Clone, Copy)]
+struct StaticPropLumpFlagsV4(u8);
+
+bitflags! {
+    impl StaticPropLumpFlagsV4: u8 {
+        const FLAG_FADES	= 0x1;
+        const USE_LIGHTING_ORIGIN	= 0x2;
+        const NO_DRAW = 0x4;
+        const IGNORE_NORMALS	= 0x8;
+        const NO_SHADOW	= 0x10;
+        const SCREEN_SPACE_FADE	= 0x20;
+        const NO_PER_VERTEX_LIGHTING = 0x40;
+        const NO_SELF_SHADOWING = 0x80;
+    }
 }
 
 impl From<StaticPropLumpFlagsV5> for StaticPropLumpFlags {
@@ -314,6 +357,28 @@ fn test_static_prop_lump_bytes() {
 }
 
 static_assertions::const_assert_eq!(size_of::<StaticPropLumpV10>(), size_of::<StaticPropLump>());
+
+impl From<StaticPropLumpV4> for StaticPropLump {
+    fn from(from: StaticPropLumpV4) -> Self {
+        StaticPropLump {
+            origin: from.origin,
+            angles: from.angles,
+            prop_type: from.prop_type,
+            first_leaf: from.first_leaf,
+            leaf_count: from.leaf_count,
+            solid: from.solid,
+            skin: from.skin,
+            fade_min_distance: from.fade_min_distance,
+            fade_max_distance: from.fade_max_distance,
+            lighting_origin: from.lighting_origin,
+            forced_fade_scale: Default::default(),
+            min_dx_level: Default::default(),
+            max_dx_level: Default::default(),
+            flags: from.flags.into(),
+            lightmap_resolution: Default::default(),
+        }
+    }
+}
 
 impl From<StaticPropLumpV5> for StaticPropLump {
     fn from(from: StaticPropLumpV5) -> Self {
