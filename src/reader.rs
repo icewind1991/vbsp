@@ -8,16 +8,18 @@ pub struct LumpReader<R> {
     inner: R,
     length: usize,
     lump: LumpType,
+    version: u32,
 }
 
 impl<'a> LumpReader<Cursor<Cow<'a, [u8]>>> {
-    pub fn new(data: Cow<'a, [u8]>, lump: LumpType) -> Self {
+    pub fn new(data: Cow<'a, [u8]>, lump: LumpType, version: u32) -> Self {
         let length = data.len();
         let reader = Cursor::new(data);
         LumpReader {
             inner: reader,
             length,
             lump,
+            version,
         }
     }
 
@@ -58,11 +60,7 @@ impl<R: BinReaderExt + Read> LumpReader<R> {
         Ok(entries)
     }
 
-    pub fn read<T: BinRead + Debug>(&mut self) -> BspResult<T>
-    where
-        T::Args<'static>: Default,
-        <T as BinRead>::Args<'static>: Clone,
-    {
+    pub fn read<'a, T: BinRead<Args<'a> = ()> + Debug>(&mut self) -> BspResult<T> {
         // let start = self.inner.stream_position().unwrap() as usize;
         let result = self.inner.read_le()?;
         // let end = self.inner.stream_position().unwrap() as usize;
@@ -74,6 +72,14 @@ impl<R: BinReaderExt + Read> LumpReader<R> {
         //     type_name::<T>(),
         //     result
         // );
+        Ok(result)
+    }
+    pub fn read_args<'a, T: BinRead<Args<'a> = LumpArgs> + Debug>(&mut self) -> BspResult<T> {
+        let args = LumpArgs {
+            length: self.length,
+            version: self.version,
+        };
+        let result = T::read_options(&mut self.inner, binrw::Endian::Little, args)?;
         Ok(result)
     }
 

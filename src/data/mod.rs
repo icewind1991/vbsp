@@ -85,6 +85,12 @@ pub struct Header {
     pub version: BspVersion,
 }
 
+#[derive(Clone, Copy, Debug, Default)]
+pub struct LumpArgs {
+    pub length: usize,
+    pub version: u32,
+}
+
 #[derive(Clone, Copy, Debug, Default, BinRead)]
 #[br(little)]
 pub struct LumpEntry {

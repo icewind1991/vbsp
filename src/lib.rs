@@ -71,7 +71,7 @@ impl Bsp {
             .read_vec(|r| r.read())?;
         let texture_string_data = String::from_utf8(
             bsp_file
-                .get_lump(LumpType::TextureDataStringData)?
+                .get_lump(bsp_file.get_lump_entry(LumpType::TextureDataStringData))?
                 .into_owned(),
         )
         .map_err(|e| BspError::String(StringError::NonUTF8(e.utf8_error())))?;
