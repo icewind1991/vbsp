@@ -7,8 +7,6 @@ use zip::result::ZipError;
 #[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum BspError {
-    #[error("unexpected magic numbers or version")]
-    UnexpectedHeader(Header),
     #[error("bsp lump is out of bounds of the bsp file")]
     LumpOutOfBounds(LumpEntry),
     #[error("bsp game lump is out of bounds of the bsp file")]
