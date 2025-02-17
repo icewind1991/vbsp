@@ -1,12 +1,14 @@
 mod displacement;
 mod entity;
 mod game;
+mod leaves;
 mod prop;
 mod vector;
 
 pub use self::displacement::*;
 pub use self::entity::*;
 pub use self::game::*;
+pub use self::leaves::*;
 pub use self::prop::PropPlacement;
 pub use self::vector::*;
 use crate::bspfile::LumpType;
@@ -26,7 +28,7 @@ use std::cmp::min;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::io::{Cursor, Read, Seek};
-use std::mem::{align_of, size_of};
+use std::mem::size_of;
 use std::ops::Index;
 use std::str::FromStr;
 use std::sync::Mutex;
@@ -224,29 +226,6 @@ pub struct Node {
 }
 
 static_assertions::const_assert_eq!(size_of::<Node>(), 32);
-
-#[derive(Default, Debug, Clone, BinRead)]
-pub struct Leaf {
-    pub contents: i32,
-    pub cluster: i16,
-    pub area_and_flags: i16,
-    // first 9 bits is area, last 7 bits is flags
-    pub mins: [i16; 3],
-    pub maxs: [i16; 3],
-    pub first_leaf_face: u16,
-    pub leaf_face_count: u16,
-    pub first_leaf_brush: u16,
-    pub leaf_brush_count: u16,
-    #[br(align_after = align_of::< Leaf > ())]
-    pub leaf_watter_data_id: i16,
-}
-
-static_assertions::const_assert_eq!(size_of::<Leaf>(), 32);
-
-#[test]
-fn test_leaf_bytes() {
-    test_read_bytes::<Leaf>();
-}
 
 #[derive(Debug, Clone, BinRead)]
 pub struct LeafBrush {
