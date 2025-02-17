@@ -75,6 +75,7 @@ impl Index<LumpType> for Directories {
 #[br(little)]
 #[brw(repr=u32)]
 pub enum BspVersion {
+    Version19 = 19,
     Version20 = 20,
 }
 
