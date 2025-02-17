@@ -871,9 +871,11 @@ pub struct EnvShake<'a> {
 pub struct EnvShooter<'a> {
     pub angles: Angles,
     pub delay: f32,
-    pub disablereceiveshadows: &'a str,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub disablereceiveshadows: bool,
+    #[serde(deserialize_with = "bool_from_int")]
     #[serde(default)]
-    pub disableshadows: Option<&'a str>,
+    pub disableshadows: bool,
     pub gibangles: Angles,
     #[serde(deserialize_with = "bool_from_int")]
     #[serde(default)]
@@ -1051,10 +1053,12 @@ pub struct EnvSprite<'a> {
 }
 #[derive(Debug, Clone, Deserialize)]
 pub struct EnvSpritetrail<'a> {
+    #[serde(deserialize_with = "bool_from_int")]
     #[serde(default)]
-    pub disablereceiveshadows: Option<&'a str>,
+    pub disablereceiveshadows: bool,
+    #[serde(deserialize_with = "bool_from_int")]
     #[serde(default)]
-    pub disableshadows: Option<&'a str>,
+    pub disableshadows: bool,
     pub endwidth: f32,
     pub lifetime: f32,
     #[serde(deserialize_with = "bool_from_int")]
@@ -1372,10 +1376,12 @@ pub struct FuncBreakableSurf<'a> {
 pub struct FuncBrush<'a> {
     #[serde(default)]
     pub _minlight: Option<f32>,
+    #[serde(deserialize_with = "bool_from_int")]
     #[serde(default)]
-    pub disablereceiveshadows: Option<&'a str>,
+    pub disablereceiveshadows: bool,
+    #[serde(deserialize_with = "bool_from_int")]
     #[serde(default)]
-    pub disableshadows: Option<&'a str>,
+    pub disableshadows: bool,
     #[serde(default)]
     pub inputfilter: Option<u8>,
     #[serde(deserialize_with = "bool_from_int")]
@@ -1414,9 +1420,11 @@ pub struct FuncButton<'a> {
     pub _minlight: Option<f32>,
     #[serde(default)]
     pub angles: Option<Angles>,
-    pub disablereceiveshadows: &'a str,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub disablereceiveshadows: bool,
+    #[serde(deserialize_with = "bool_from_int")]
     #[serde(default)]
-    pub disableshadows: Option<&'a str>,
+    pub disableshadows: bool,
     #[serde(deserialize_with = "bool_from_int")]
     #[serde(default)]
     pub health: bool,
@@ -1498,9 +1506,11 @@ pub struct FuncConveyor<'a> {
 pub struct FuncDoor<'a> {
     #[serde(default)]
     pub _minlight: Option<f32>,
-    pub disablereceiveshadows: &'a str,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub disablereceiveshadows: bool,
+    #[serde(deserialize_with = "bool_from_int")]
     #[serde(default)]
-    pub disableshadows: Option<&'a str>,
+    pub disableshadows: bool,
     #[serde(default)]
     pub dmg: Option<u32>,
     #[serde(deserialize_with = "bool_from_int")]
@@ -1969,9 +1979,11 @@ pub struct FuncRotating<'a> {
     #[serde(default)]
     pub _minlight: Option<f32>,
     pub angles: Angles,
-    pub disablereceiveshadows: &'a str,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub disablereceiveshadows: bool,
+    #[serde(deserialize_with = "bool_from_int")]
     #[serde(default)]
-    pub disableshadows: Option<&'a str>,
+    pub disableshadows: bool,
     pub dmg: f32,
     pub fanfriction: f32,
     pub maxspeed: f32,
@@ -2121,8 +2133,10 @@ pub struct FuncWall<'a> {
 pub struct FuncWallToggle<'a> {
     #[serde(default)]
     pub _minlight: Option<f32>,
-    pub disablereceiveshadows: &'a str,
-    pub disableshadows: &'a str,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub disablereceiveshadows: bool,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub disableshadows: bool,
     pub model: &'a str,
     #[serde(default)]
     pub origin: Option<Vector>,
