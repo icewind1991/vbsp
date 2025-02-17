@@ -1179,7 +1179,7 @@ pub struct EnvWind {
 #[derive(Debug, Clone, Deserialize)]
 pub struct FilterActivatorClass<'a> {
     pub filterclass: &'a str,
-    pub negated: &'a str,
+    pub negated: Negated,
     pub origin: Vector,
     pub targetname: &'a str,
 }
@@ -1187,7 +1187,7 @@ pub struct FilterActivatorClass<'a> {
 pub struct FilterActivatorName<'a> {
     #[serde(default)]
     pub filtername: Option<&'a str>,
-    pub negated: &'a str,
+    pub negated: Negated,
     #[serde(default)]
     pub onfail: Option<&'a str>,
     #[serde(default)]
@@ -1198,7 +1198,7 @@ pub struct FilterActivatorName<'a> {
 #[derive(Debug, Clone, Deserialize)]
 pub struct FilterDamageType<'a> {
     pub damagetype: u8,
-    pub negated: &'a str,
+    pub negated: Negated,
     pub origin: Vector,
     #[serde(default)]
     pub targetname: Option<&'a str>,
