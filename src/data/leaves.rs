@@ -50,6 +50,7 @@ impl BinRead for Leaves {
         args: Self::Args<'_>,
     ) -> BinResult<Self> {
         let item_size = match args.version {
+            0 => size_of::<LeafV0>(),
             1 => size_of::<LeafV1>(),
             version => {
                 return Err(binrw::Error::Custom {
@@ -203,6 +204,43 @@ pub struct CompressedLightCube {
 }
 
 #[derive(Default, Debug, Clone, BinRead)]
+pub struct LeafV0 {
+    pub contents: i32,
+    pub cluster: i16,
+    pub area_and_flags: i16,
+    // first 9 bits is area, last 7 bits is flags
+    pub mins: [i16; 3],
+    pub maxs: [i16; 3],
+    pub first_leaf_face: u16,
+    pub leaf_face_count: u16,
+    pub first_leaf_brush: u16,
+    pub leaf_brush_count: u16,
+    pub leaf_watter_data_id: i16,
+    #[br(align_after = align_of::< LeafV0 > ())]
+    pub cube: CompressedLightCube,
+}
+
+static_assertions::const_assert_eq!(size_of::<LeafV0>(), 56);
+
+impl From<LeafV0> for Leaf {
+    fn from(value: LeafV0) -> Self {
+        Self {
+            contents: value.contents,
+            cluster: value.cluster,
+            area_and_flags: value.area_and_flags,
+            mins: value.mins,
+            maxs: value.maxs,
+            first_leaf_face: value.first_leaf_face,
+            leaf_face_count: value.leaf_face_count,
+            first_leaf_brush: value.first_leaf_brush,
+            leaf_brush_count: value.leaf_brush_count,
+            leaf_watter_data_id: value.leaf_watter_data_id,
+            cube: value.cube,
+        }
+    }
+}
+
+#[derive(Default, Debug, Clone, BinRead)]
 pub struct LeafV1 {
     pub contents: i32,
     pub cluster: i16,
@@ -275,6 +313,7 @@ impl BinRead for Leaf {
         args: Self::Args<'_>,
     ) -> BinResult<Self> {
         match args.version {
+            0 => LeafV0::read_options(reader, endian, ()).map(Leaf::from),
             1 => LeafV1::read_options(reader, endian, ()).map(Leaf::from),
             version => Err(binrw::Error::Custom {
                 err: Box::new(crate::error::UnsupportedLumpVersion {
