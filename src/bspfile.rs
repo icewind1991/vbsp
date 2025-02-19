@@ -12,7 +12,14 @@ pub struct BspFile<'a> {
 impl<'a> BspFile<'a> {
     pub fn new(data: &'a [u8]) -> BspResult<Self> {
         let mut cursor = Cursor::new(data);
-        let header: Header = cursor.read_le()?;
+        let header: Header = cursor.read_le().map_err(|err| match err {
+            binrw::Error::BadMagic { .. } => {
+                BspError::UnexpectedHeader(data[..4].try_into().expect(
+                    "always enough data because otherwise a different binrw error would be hit",
+                ))
+            }
+            error => BspError::MalformedData(error),
+        })?;
         let directories = cursor.read_le()?;
 
         Ok(BspFile {
