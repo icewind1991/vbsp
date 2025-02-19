@@ -11,23 +11,15 @@ pub struct BspFile<'a> {
 
 impl<'a> BspFile<'a> {
     pub fn new(data: &'a [u8]) -> BspResult<Self> {
-        const EXPECTED_HEADER: Header = Header {
-            v: b'V',
-            b: b'B',
-            s: b'S',
-            p: b'P',
-        };
-        // TODO: Use this to decide on the version to parse it as
-        const EXPECTED_VERSION: u32 = 0x14;
-
         let mut cursor = Cursor::new(data);
-        let header: Header = cursor.read_le()?;
-        let version: u32 = cursor.read_le()?;
-
-        if header != EXPECTED_HEADER || version != EXPECTED_VERSION {
-            return Err(BspError::UnexpectedHeader(header));
-        }
-
+        let header: Header = cursor.read_le().map_err(|err| match err {
+            binrw::Error::BadMagic { .. } => {
+                BspError::UnexpectedHeader(data[..4].try_into().expect(
+                    "always enough data because otherwise a different binrw error would be hit",
+                ))
+            }
+            error => BspError::MalformedData(error),
+        })?;
         let directories = cursor.read_le()?;
 
         Ok(BspFile {

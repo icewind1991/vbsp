@@ -71,11 +71,16 @@ impl Index<LumpType> for Directories {
 
 #[derive(Debug, Clone, PartialEq, Eq, BinRead)]
 #[br(little)]
+#[brw(repr=u32)]
+pub enum BspVersion {
+    Version20 = 20,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, BinRead)]
+#[br(little)]
 pub struct Header {
-    pub v: u8,
-    pub b: u8,
-    pub s: u8,
-    pub p: u8,
+    #[brw(magic = b"VBSP")]
+    pub version: BspVersion,
 }
 
 #[derive(Clone, Copy, Debug, Default, BinRead)]
