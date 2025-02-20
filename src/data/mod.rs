@@ -542,7 +542,7 @@ where
         })
 }
 
-#[derive(Debug, Copy, Clone, BinRead)]
+#[derive(Debug, Copy, Clone, BinRead, Default)]
 pub struct Angles {
     pitch: f32,
     yaw: f32,
