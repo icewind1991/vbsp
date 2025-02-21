@@ -202,7 +202,7 @@ impl FromStr for Color {
     type Err = EntityParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut floats = s.split(' ').map(u8::from_str);
+        let mut floats = s.split_whitespace().map(u8::from_str);
         let r = floats.next().ok_or(EntityParseError::ElementCount)??;
         let g = floats.next().ok_or(EntityParseError::ElementCount)??;
         let b = floats.next().ok_or(EntityParseError::ElementCount)??;
@@ -219,13 +219,9 @@ impl<'de> Deserialize<'de> for Color {
         D: Deserializer<'de>,
     {
         let str = <&str>::deserialize(deserializer)?;
-        let colors = <[u8; 3]>::parse(str)
+        let [r, g, b] = <[u8; 3]>::parse(str)
             .map_err(|_| D::Error::invalid_value(Unexpected::Other(str), &"a list of 3 numbers"))?;
-        Ok(Color {
-            r: colors[0],
-            g: colors[1],
-            b: colors[2],
-        })
+        Ok(Color { r, g, b })
     }
 }
 
@@ -241,7 +237,7 @@ impl FromStr for LightColor {
     type Err = EntityParseError;
 
     fn from_str(str: &str) -> Result<Self, Self::Err> {
-        let mut values = str.split(' ');
+        let mut values = str.split_whitespace();
         let r = values
             .next()
             .ok_or(EntityParseError::ElementCount)?
