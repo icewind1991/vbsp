@@ -42,13 +42,21 @@ where
     T::Args<'static>: Default,
     <T as BinRead>::Args<'static>: Clone,
 {
+    test_read_bytes_args::<T>(T::Args::default())
+}
+
+#[cfg(test)]
+fn test_read_bytes_args<T: BinRead>(args: T::Args<'static>)
+where
+    <T as BinRead>::Args<'static>: Clone,
+{
     use binrw::BinReaderExt;
     use std::any::type_name;
 
     let bytes = [0; 512];
     let mut reader = Cursor::new(bytes);
 
-    let _ = reader.read_le::<T>().unwrap();
+    let _ = reader.read_le_args::<T>(args).unwrap();
 
     assert_eq!(
         reader.position() as usize,
