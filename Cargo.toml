@@ -1,6 +1,6 @@
 [package]
 name = "vbsp"
-version = "0.6.0"
+version = "0.7.0"
 authors = ["Robin Appelman <robin@icewind.nl>"]
 homepage = "https://github.com/icewind1991/vbsp"
 repository = "https://github.com/icewind1991/vbsp"
@@ -13,18 +13,18 @@ rust-version = "1.74.0"
 
 [dependencies]
 arrayvec = "0.7.6"
-bitflags = "2.6.0"
+bitflags = "2.8.0"
 bv = "0.11.1"
-thiserror = "1.0.63"
+thiserror = "2.0.11"
 lzma-rs = "0.3.0"
-binrw = "0.14.0"
+binrw = "0.14.1"
 static_assertions = "1.1.0"
-num_enum = "0.7.2"
+num_enum = "0.7.3"
 cgmath = "0.18.0"
 zip = { package = "zip-lzma", version = "0.6.3", default-features = false, features = ["lzma"] }
-itertools = "0.13.0"
+itertools = "0.14.0"
 ahash = "0.8.11"
-serde = "1.0.209"
+serde = "1.0.218"
 vdf-reader = "0.2.0"
 
 [dev-dependencies]

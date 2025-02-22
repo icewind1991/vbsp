@@ -492,7 +492,6 @@ pub struct GameText<'a> {
     #[serde(rename = "targetname", default)]
     pub target_name: Option<&'a str>,
     pub message: &'a str,
-    pub fadeout: f32,
     pub color: Color,
     #[serde(rename = "fadein")]
     pub fade_in: f32,
