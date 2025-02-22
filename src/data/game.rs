@@ -227,7 +227,7 @@ struct RawStaticPropLump {
 
 #[test]
 fn test_static_prop_lump_bytes() {
-    super::test_read_bytes::<RawStaticPropLump>();
+    super::test_read_bytes_args::<RawStaticPropLump>((10,));
 }
 
 impl From<RawStaticPropLump> for StaticPropLump {
