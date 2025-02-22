@@ -1,5 +1,5 @@
 use crate::bool_from_int;
-use crate::{Angles, Color, LightColor, Vector};
+use crate::{Angles, Color, LightColor, Negated, Vector};
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize)]
@@ -347,7 +347,7 @@ pub struct FilterActivatorTeam<'a> {
     #[serde(rename = "targetname", default)]
     pub target_name: Option<&'a str>,
     #[serde(rename = "negated", default)]
-    pub negated: Option<&'a str>,
+    pub negated: Option<Negated>,
     #[serde(rename = "teamnum", default)]
     pub team: u8,
 }
