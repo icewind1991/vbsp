@@ -558,7 +558,7 @@ impl FromStr for Angles {
     type Err = EntityParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut floats = s.split(' ').map(f32::from_str);
+        let mut floats = s.split_whitespace().map(f32::from_str);
         let pitch = floats.next().ok_or(EntityParseError::ElementCount)??;
         let yaw = floats.next().ok_or(EntityParseError::ElementCount)??;
         let roll = floats.next().ok_or(EntityParseError::ElementCount)??;
