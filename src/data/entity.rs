@@ -217,13 +217,9 @@ impl<'de> Deserialize<'de> for Color {
         D: Deserializer<'de>,
     {
         let str = <&str>::deserialize(deserializer)?;
-        let colors = <[u8; 3]>::parse(str)
+        let [r, g, b] = <[u8; 3]>::parse(str)
             .map_err(|_| D::Error::invalid_value(Unexpected::Other(str), &"a list of 3 numbers"))?;
-        Ok(Color {
-            r: colors[0],
-            g: colors[1],
-            b: colors[2],
-        })
+        Ok(Color { r, g, b })
     }
 }
 
