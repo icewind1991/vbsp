@@ -99,7 +99,7 @@ impl FromStr for Vector {
     type Err = EntityParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut floats = s.split(' ').map(f32::from_str);
+        let mut floats = s.split_whitespace().map(f32::from_str);
         let x = floats.next().ok_or(EntityParseError::ElementCount)??;
         let y = floats.next().ok_or(EntityParseError::ElementCount)??;
         let z = floats.next().ok_or(EntityParseError::ElementCount)??;

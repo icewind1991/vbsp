@@ -162,7 +162,7 @@ where
     [T; N]: Default,
 {
     fn parse(raw: &'_ str) -> Result<Self, EntityParseError> {
-        let mut values = raw.split(' ').map(T::from_str);
+        let mut values = raw.split_whitespace().map(T::from_str);
         let mut result = <[T; N]>::default();
         for item in result.iter_mut() {
             *item = values.next().ok_or(EntityParseError::ElementCount)??;
@@ -200,7 +200,7 @@ impl FromStr for Color {
     type Err = EntityParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut floats = s.split(' ').map(u8::from_str);
+        let mut floats = s.split_whitespace().map(u8::from_str);
         let r = floats.next().ok_or(EntityParseError::ElementCount)??;
         let g = floats.next().ok_or(EntityParseError::ElementCount)??;
         let b = floats.next().ok_or(EntityParseError::ElementCount)??;
@@ -235,7 +235,7 @@ impl FromStr for LightColor {
     type Err = EntityParseError;
 
     fn from_str(str: &str) -> Result<Self, Self::Err> {
-        let mut values = str.split(' ');
+        let mut values = str.split_whitespace();
         let r = values
             .next()
             .ok_or(EntityParseError::ElementCount)?
