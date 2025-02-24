@@ -1,4 +1,4 @@
-use crate::bool_from_int;
+use crate::deserialize_bool;
 use crate::{Angles, Color, LightColor, Vector};
 use serde::Deserialize;
 
@@ -150,10 +150,10 @@ pub struct LightSpot {
 pub struct PropDynamic<'a> {
     pub angles: Angles,
     #[serde(rename = "disablereceiveshadows", default)]
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "deserialize_bool")]
     pub disable_receive_shadows: bool,
     #[serde(rename = "disableshadows", default)]
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "deserialize_bool")]
     pub disable_shadows: bool,
     #[serde(rename = "modelscale")]
     pub scale: f32,
@@ -171,10 +171,10 @@ pub struct PropDynamic<'a> {
 pub struct PropDynamicOverride<'a> {
     pub angles: Angles,
     #[serde(rename = "disablereceiveshadows", default)]
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "deserialize_bool")]
     pub disable_receive_shadows: bool,
     #[serde(rename = "disableshadows", default)]
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "deserialize_bool")]
     pub disable_shadows: bool,
     #[serde(rename = "modelscale")]
     pub scale: f32,
@@ -206,7 +206,7 @@ pub struct Spawn<'a> {
     #[serde(rename = "controlpoint", default)]
     pub control_point: Option<&'a str>,
     #[serde(rename = "startdisabled", default)]
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "deserialize_bool")]
     pub start_disabled: bool,
     #[serde(rename = "teamnum")]
     pub team: u8,
@@ -218,7 +218,7 @@ pub struct RespawnRoom<'a> {
     pub target: Option<&'a str>,
     pub model: &'a str,
     #[serde(rename = "startdisabled", default)]
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "deserialize_bool")]
     pub start_disabled: bool,
     #[serde(rename = "teamnum")]
     pub team: u8,
@@ -240,7 +240,7 @@ pub struct Door<'a> {
     pub target: &'a str,
     pub speed: f32,
     #[serde(rename = "forceclosed", default)]
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "deserialize_bool")]
     pub force_closed: bool,
     #[serde(rename = "movedir")]
     pub move_direction: Vector,
@@ -278,7 +278,7 @@ pub struct WorldSpawn<'a> {
 #[derive(Debug, Clone, Deserialize)]
 pub struct ObserverPoint<'a> {
     #[serde(rename = "startdisabled", default)]
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "deserialize_bool")]
     pub start_disabled: bool,
     pub angles: Angles,
     pub origin: Vector,
@@ -293,7 +293,7 @@ pub struct BrushEntity<'a> {
     pub model: &'a str,
     pub origin: Vector,
     #[serde(rename = "startdisabled", default)]
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "deserialize_bool")]
     pub start_disabled: bool,
     #[serde(rename = "rendercolor")]
     pub color: Color,
@@ -307,7 +307,7 @@ pub struct LightGlow {
     #[serde(rename = "horizontalhlowsize")]
     pub horizontal_size: u32,
     #[serde(rename = "startdisabled", default)]
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "deserialize_bool")]
     pub start_disabled: bool,
     #[serde(rename = "rendercolor")]
     pub color: Color,
@@ -337,7 +337,7 @@ pub struct TriggerMultiple<'a> {
     pub filter: Option<&'a str>,
     pub wait: Option<u32>,
     #[serde(rename = "startdisabled", default)]
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "deserialize_bool")]
     pub start_disabled: bool,
 }
 
@@ -374,7 +374,7 @@ pub struct DustMotes<'a> {
     pub origin: Vector,
     pub model: &'a str,
     #[serde(rename = "startdisabled", default)]
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "deserialize_bool")]
     pub start_disabled: bool,
     #[serde(rename = "color")]
     pub color: Color,
@@ -392,9 +392,9 @@ pub struct DustMotes<'a> {
 pub struct SkyCamera {
     pub origin: Vector,
     #[serde(rename = "fogenable")]
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "deserialize_bool")]
     pub fog: bool,
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "deserialize_bool")]
     pub use_angles: bool,
     #[serde(rename = "fogstart")]
     pub fog_start: f32,
@@ -439,7 +439,7 @@ pub struct RespawnVisualizer<'a> {
     pub room_name: &'a str,
     #[serde(rename = "rendercolor")]
     pub color: Color,
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "deserialize_bool")]
     pub solid_to_enemies: bool,
 }
 
@@ -451,7 +451,7 @@ pub struct ParticleSystem<'a> {
     pub target_name: Option<&'a str>,
     pub effect_name: &'a str,
     #[serde(default)]
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "deserialize_bool")]
     pub start_active: bool,
 }
 
@@ -471,7 +471,7 @@ pub struct TeamControlPoint<'a> {
     #[serde(default)]
     pub point_default_owner: u8,
     #[serde(rename = "startdisabled", default)]
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "deserialize_bool")]
     pub start_disabled: bool,
 }
 
@@ -482,7 +482,7 @@ pub struct AreaPortal {
     #[serde(rename = "portalnumber")]
     pub number: u8,
     #[serde(rename = "startopen")]
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "deserialize_bool")]
     pub start_open: bool,
 }
 
@@ -514,18 +514,18 @@ pub struct RopeKeyFrame<'a> {
     #[serde(rename = "ropematerial")]
     pub material: &'a str,
     #[serde(rename = "dangling")]
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "deserialize_bool")]
     pub dangling: bool,
     #[serde(rename = "barbed")]
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "deserialize_bool")]
     pub barbed: bool,
     #[serde(rename = "breakable")]
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "deserialize_bool")]
     pub breakable: bool,
     #[serde(rename = "texturescale")]
     pub texture_scale: f32,
     #[serde(rename = "collide")]
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "deserialize_bool")]
     pub collide: bool,
     #[serde(rename = "width")]
     pub width: f32,
@@ -549,13 +549,13 @@ pub struct RopeMove<'a> {
     #[serde(rename = "width")]
     pub width: f32,
     #[serde(rename = "dangling")]
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "deserialize_bool")]
     pub dangling: bool,
     #[serde(rename = "barbed")]
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "deserialize_bool")]
     pub barbed: bool,
     #[serde(rename = "breakable")]
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "deserialize_bool")]
     pub breakable: bool,
     #[serde(rename = "positioninterpolator")]
     pub interpolator: u8,
@@ -575,7 +575,7 @@ pub struct GameRules<'a> {
     #[serde(rename = "targetname", default)]
     pub target_name: Option<&'a str>,
     #[serde(default)]
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "deserialize_bool")]
     pub ctf_overtime: bool,
     #[serde(default)]
     pub hud_type: u32,
@@ -651,6 +651,6 @@ pub struct Occluder<'a> {
     #[serde(rename = "occludernumber", default)]
     pub occluder_number: u32,
     pub model: &'a str,
-    #[serde(rename = "startactive", deserialize_with = "bool_from_int")]
+    #[serde(rename = "startactive", deserialize_with = "deserialize_bool")]
     pub start_active: bool,
 }
