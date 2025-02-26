@@ -87,7 +87,7 @@ impl BinRead for Leaves {
             )?);
         }
 
-        Ok(Self { leaves: entries })
+        Ok(Self::new(entries))
     }
 }
 
