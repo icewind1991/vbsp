@@ -184,6 +184,12 @@ impl Bsp {
         self.nodes.get(n).map(|node| Handle::new(self, node))
     }
 
+    pub fn texture_info(&self, n: usize) -> Option<Handle<'_, TextureInfo>> {
+        self.textures_info
+            .get(n)
+            .map(|texture_info| Handle::new(self, texture_info))
+    }
+
     pub fn displacement(&self, n: usize) -> Option<Handle<'_, DisplacementInfo>> {
         self.displacements
             .get(n)
