@@ -1,5 +1,5 @@
-use serde::Deserializer;
 use serde::de::{Error, Unexpected};
+use serde::Deserializer;
 use std::fmt;
 
 struct BoolVisitor;

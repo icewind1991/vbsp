@@ -2,7 +2,6 @@ use crate::error::UnsupportedLumpVersion;
 use crate::{lzma_decompress_with_header, Angles, BspError, FixedString, Vector};
 use binrw::{BinRead, BinReaderExt, BinResult, Endian};
 use bitflags::bitflags;
-use cgmath::Quaternion;
 use std::borrow::Cow;
 use std::io::{Cursor, Read, Seek};
 
@@ -120,7 +119,7 @@ pub struct StaticPropLumps {
 #[derive(Debug, Clone, Default)]
 pub struct StaticPropLump {
     pub origin: Vector,
-    angles: Angles,
+    pub angles: Angles,
     pub prop_type: u16,
     pub first_leaf: u16,
     pub leaf_count: u16,
@@ -134,13 +133,6 @@ pub struct StaticPropLump {
     pub max_dx_level: u16,
     pub flags: StaticPropLumpFlags,
     pub lightmap_resolution: [u16; 2],
-}
-
-impl StaticPropLump {
-    /// Get the rotation of the prop as quaternion
-    pub fn rotation(&self) -> Quaternion<f32> {
-        self.angles.as_quaternion()
-    }
 }
 
 impl BinRead for StaticPropLump {
