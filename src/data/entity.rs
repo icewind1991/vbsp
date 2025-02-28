@@ -39,7 +39,7 @@ impl<'a> Iterator for EntitiesIter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         let start = self.buf.find('{')?;
         let slice = &self.buf[start..];
-        let end = start + slice.find('}')?;
+        let end = slice.find('}')?;
         let (out, rest) = slice.split_at(end + 1);
 
         self.buf = rest;
