@@ -38,12 +38,11 @@ impl<'a> Iterator for EntitiesIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let start = self.buf.find('{')?;
-        let end = start + self.buf[start..].find('}')?;
+        let slice = &self.buf[start..];
+        let end = start + slice.find('}')?;
+        let (out, rest) = slice.split_at(end + 1);
 
-        let out = &self.buf[start..end + 1];
-
-        self.buf = &self.buf[end + 1..];
-
+        self.buf = rest;
         Some(RawEntity { buf: out })
     }
 }
