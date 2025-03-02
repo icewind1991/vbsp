@@ -6,7 +6,6 @@ mod reader;
 
 use crate::bspfile::LumpType;
 pub use crate::data::TextureFlags;
-pub use crate::data::Vector;
 pub use crate::data::*;
 use crate::error::ValidationError;
 pub use crate::handle::Handle;
@@ -18,6 +17,7 @@ use lzma_rs::decompress::{Options, UnpackedSize};
 use reader::LumpReader;
 use std::cmp::min;
 use std::io::Read;
+pub use vbsp_common::deserialize_bool;
 
 pub type BspResult<T> = Result<T, BspError>;
 

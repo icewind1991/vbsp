@@ -1,4 +1,4 @@
-use crate::error::EntityParseError;
+use crate::EntityParseError;
 use binrw::BinRead;
 use cgmath::Vector3;
 use serde::de::{Error, Unexpected};

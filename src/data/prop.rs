@@ -1,17 +1,8 @@
-use crate::{Handle, StaticPropLump, Vector};
-use cgmath::Quaternion;
+use crate::{Handle, StaticPropLump};
+use vbsp_common::{AsPropPlacement, PropPlacement};
 
-#[derive(Debug, Clone)]
-pub struct PropPlacement<'a> {
-    pub model: &'a str,
-    pub rotation: Quaternion<f32>,
-    pub scale: f32,
-    pub origin: Vector,
-    pub skin: i32,
-}
-
-impl<'a> Handle<'a, StaticPropLump> {
-    pub fn as_prop_placement(&self) -> PropPlacement<'a> {
+impl<'a> AsPropPlacement<'a> for Handle<'a, StaticPropLump> {
+    fn as_prop_placement(&self) -> PropPlacement<'a> {
         PropPlacement {
             model: self.model(),
             rotation: self.rotation(),

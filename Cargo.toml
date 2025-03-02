@@ -12,6 +12,7 @@ exclude = ["*.bsp"]
 rust-version = "1.85.0"
 
 [dependencies]
+vbsp-common = { version = "0.1.0", path = "common" }
 arrayvec = "0.7.6"
 bitflags = "2.8.0"
 bv = "0.11.1"
@@ -39,3 +40,6 @@ opt-level = 2
 [[bench]]
 name = "bench"
 harness = false
+
+[workspace]
+members = ["common"]

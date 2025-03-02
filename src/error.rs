@@ -1,7 +1,7 @@
 use crate::bspfile::LumpType;
 use crate::data::*;
-use std::num::{ParseFloatError, ParseIntError};
 use thiserror::Error;
+pub use vbsp_common::EntityParseError;
 use zip::result::ZipError;
 
 #[non_exhaustive]
@@ -120,14 +120,4 @@ pub enum InvalidNeighbourError {
     InvalidNeighbourSpan(u8),
     #[error("Invalid neighbour orientation")]
     InvalidNeighbourOrientation(u8),
-}
-
-#[derive(Debug, Error)]
-pub enum EntityParseError {
-    #[error("wrong number of elements")]
-    ElementCount,
-    #[error(transparent)]
-    Float(#[from] ParseFloatError),
-    #[error(transparent)]
-    Int(#[from] ParseIntError),
 }

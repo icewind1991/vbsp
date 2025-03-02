@@ -1,6 +1,6 @@
-use super::vector::Vector;
 use crate::data::try_read_enum;
 use crate::error::InvalidNeighbourError;
+use crate::Vector;
 use binrw::{BinRead, BinResult, Endian};
 use bitflags::bitflags;
 use num_enum::TryFromPrimitive;
