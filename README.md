@@ -2,7 +2,9 @@
 
 Rust parser for valve bsp files.
 
-Currently only supports the tf2 version of bsp files, but adding other sourcemod variants should be fairly straight forward.
+Currently supports bsp files from Counter Strike Source and Team Fortress 2, other source games using bsp version 19 or
+20 might also work.
+Adding other sourcemod variants should be fairly straight forward and pull requests for them are welcome.
 
 # Example usage
 
@@ -16,7 +18,8 @@ fn main() -> Result<(), vbsp::BspError> {
 }
 ```
 
-See [vbsp-to-gltf](https://github.com/icewind1991/vbsp-to-gltf) or [vbspviewer](https://github.com/icewind1991/vbspview) for some more examples of how to use the bsp data.
+See [vbsp-to-gltf](https://github.com/icewind1991/vbsp-to-gltf) or [vbspviewer](https://github.com/icewind1991/vbspview)
+for some more examples of how to use the bsp data.
 
 ## TODO
 
