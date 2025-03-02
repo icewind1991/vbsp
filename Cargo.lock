@@ -95,9 +95,9 @@ dependencies = [
 
 [[package]]
 name = "bitflags"
-version = "2.8.0"
+version = "2.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f68f53c83ab957f72c32642f3868eec03eb974d1fb82e453128456482613d36"
+checksum = "5c8214115b7bf84099f1309324e63141d4c5d7cc26862f97a0a857dbefe165bd"
 
 [[package]]
 name = "bumpalo"
@@ -183,18 +183,18 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.30"
+version = "4.5.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92b7b18d71fad5313a1e320fa9897994228ce274b60faa4d694fe0ea89cd9e6d"
+checksum = "027bb0d98429ae334a8698531da7077bdf906419543a35a55c2cb1b66437d767"
 dependencies = [
  "clap_builder",
 ]
 
 [[package]]
 name = "clap_builder"
-version = "4.5.30"
+version = "4.5.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a35db2071778a7344791a4fb4f95308b5673d219dee3ae348b86642574ecc90c"
+checksum = "5589e0cba072e0f3d23791efac0fd8627b49c829c196a492e88168e6a669d863"
 dependencies = [
  "anstyle",
  "clap_lex",
@@ -299,9 +299,9 @@ checksum = "43da5946c66ffcc7745f48db692ffbb10a83bfe0afd96235c5c2a4fb23994929"
 
 [[package]]
 name = "either"
-version = "1.13.0"
+version = "1.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60b1af1c220855b6ceac025d3f6ecdd2b7c4894bfe9cd9bda4fbb4bc7c0d4cf0"
+checksum = "b7914353092ddf589ad78f25c5c1c21b7f80b0ff8621e7c814c3485b5306da9d"
 
 [[package]]
 name = "equivalent"
@@ -386,15 +386,6 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
-dependencies = [
- "either",
-]
-
-[[package]]
-name = "itertools"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
@@ -426,9 +417,9 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
 name = "libc"
-version = "0.2.169"
+version = "0.2.170"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5aba8db14291edd000dfcc4d620c7ebfb122c613afb886ca8803fa4e128a20a"
+checksum = "875b3680cb2f8f71bdcf9a30f38d48282f5d3c95cbf9b3fa57269bb5d5c06828"
 
 [[package]]
 name = "log"
@@ -891,9 +882,9 @@ checksum = "7dd6e30e90baa6f72411720665d41d89b9a3d039dc45b8faea1ddd07f617f6af"
 
 [[package]]
 name = "vbsp"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f14a5685e0bb386aac9b9c6046a05152a46a0bc58d53afb3fbe577f1a1c2bb05"
+checksum = "b0477993ec6cb6ba90c6c63914bf4fc57654ba707205c649d634d664bb7136a1"
 dependencies = [
  "ahash",
  "arrayvec",
@@ -901,13 +892,13 @@ dependencies = [
  "bitflags",
  "bv",
  "cgmath",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "lzma-rs",
  "num_enum",
  "serde",
  "static_assertions",
- "thiserror 1.0.69",
- "vdf-reader 0.2.0",
+ "thiserror 2.0.11",
+ "vdf-reader",
  "zip-lzma",
 ]
 
@@ -931,7 +922,7 @@ dependencies = [
  "thiserror 2.0.11",
  "vbsp-common",
  "vbsp-entities-tf2",
- "vdf-reader 0.3.0",
+ "vdf-reader",
  "zip-lzma",
 ]
 
@@ -947,25 +938,12 @@ dependencies = [
 
 [[package]]
 name = "vbsp-entities-tf2"
-version = "0.1.0-egg"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cdb59144c18adb6e2b62b8ff0fa52aa905267ab151718011398b9dd39f9f8952"
+checksum = "aa52e55ddccee547fa8288b9a8fa231d7f60fdc58f2d9e98a9275221094bd5e5"
 dependencies = [
  "serde",
- "vbsp 0.6.0",
-]
-
-[[package]]
-name = "vdf-reader"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "543945fdc3d51b20e3e0f5fd845ddeca4a270e56522035cf152105bc144ffd65"
-dependencies = [
- "logos",
- "miette",
- "parse-display",
- "serde",
- "thiserror 1.0.69",
+ "vbsp 0.7.0",
 ]
 
 [[package]]
