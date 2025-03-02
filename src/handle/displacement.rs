@@ -3,7 +3,9 @@ use crate::data::*;
 use arrayvec::ArrayVec;
 
 impl<'a> Handle<'a, DisplacementInfo> {
-    pub fn edge_neighbours(&self) -> impl Iterator<Item = Handle<'a, DisplacementSubNeighbour>> {
+    pub fn edge_neighbours(
+        &self,
+    ) -> impl Iterator<Item = Handle<'a, DisplacementSubNeighbour>> + use<'a> {
         self.data
             .edge_neighbours
             .iter()
@@ -11,7 +13,9 @@ impl<'a> Handle<'a, DisplacementInfo> {
             .map(|sub| Handle::new(self.bsp, sub))
     }
 
-    pub fn corner_neighbours(&self) -> impl Iterator<Item = Handle<'a, DisplacementInfo>> {
+    pub fn corner_neighbours(
+        &self,
+    ) -> impl Iterator<Item = Handle<'a, DisplacementInfo>> + use<'a> {
         self.data
             .corner_neighbours
             .iter()
@@ -19,7 +23,9 @@ impl<'a> Handle<'a, DisplacementInfo> {
             .filter_map(|id| self.bsp.displacement(id as usize))
     }
 
-    pub fn displacement_vertices(&self) -> impl Iterator<Item = Handle<'a, DisplacementVertex>> {
+    pub fn displacement_vertices(
+        &self,
+    ) -> impl Iterator<Item = Handle<'a, DisplacementVertex>> + use<'a> {
         (self.displacement_vertex_start..(self.displacement_vertex_start + self.vertex_count()))
             .flat_map(|i| self.bsp.displacement_vertex(i as usize))
     }
@@ -53,7 +59,7 @@ impl<'a> Handle<'a, DisplacementInfo> {
         corner_positions
     }
 
-    fn subdivided_face(&self) -> impl Iterator<Item = Vector> + 'a {
+    fn subdivided_face(&self) -> impl Iterator<Item = Vector> + use<'a> {
         let steps = 2usize.pow(self.power as u32) + 1;
         let corner_positions = self.corner_positions();
 
@@ -75,13 +81,13 @@ impl<'a> Handle<'a, DisplacementInfo> {
             })
     }
 
-    pub fn displaced_vertices(&self) -> impl Iterator<Item = Vector> + 'a {
+    pub fn displaced_vertices(&self) -> impl Iterator<Item = Vector> + use<'a> {
         self.displacement_vertices()
             .zip(self.subdivided_face())
             .map(move |(displacement, base_pos)| base_pos + displacement.displacement())
     }
 
-    pub fn triangulated_displaced_vertices(&self) -> impl Iterator<Item = Vector> + 'a {
+    pub fn triangulated_displaced_vertices(&self) -> impl Iterator<Item = Vector> + use<'a> {
         let vertices: Vec<_> = self.displaced_vertices().collect();
         let steps = 2usize.pow(self.power as u32);
 
