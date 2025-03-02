@@ -2,13 +2,12 @@ use crate::error::EntityParseError;
 use crate::{Angles, Vector};
 use serde::de::{Error, Unexpected};
 use serde::{Deserialize, Deserializer};
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Debug;
 use std::str::FromStr;
+use vdf_reader::entry::Entry;
 use vdf_reader::VdfError;
-
-#[cfg(feature = "basic")]
-pub mod basic;
 
 #[derive(Clone)]
 pub struct Entities {
@@ -366,4 +365,12 @@ impl serde::de::Visitor<'_> for BoolVisitor {
 #[allow(dead_code)]
 pub fn deserialize_bool<'de, D: Deserializer<'de>>(deserializer: D) -> Result<bool, D::Error> {
     deserializer.deserialize_any(BoolVisitor)
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct GenericEntity {
+    #[serde(rename = "classname")]
+    pub class: String,
+    #[serde(flatten)]
+    pub data: HashMap<String, Entry>,
 }

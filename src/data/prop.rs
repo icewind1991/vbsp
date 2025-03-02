@@ -21,29 +21,3 @@ impl<'a> Handle<'a, StaticPropLump> {
         }
     }
 }
-
-#[cfg(feature = "basic")]
-impl<'a> crate::basic::PropDynamic<'a> {
-    pub fn as_prop_placement(&self) -> PropPlacement<'a> {
-        PropPlacement {
-            model: self.model,
-            rotation: self.angles.as_quaternion(),
-            scale: self.scale,
-            origin: self.origin,
-            skin: 0,
-        }
-    }
-}
-
-#[cfg(feature = "basic")]
-impl<'a> crate::basic::PropDynamicOverride<'a> {
-    pub fn as_prop_placement(&self) -> PropPlacement<'a> {
-        PropPlacement {
-            model: self.model,
-            rotation: self.angles.as_quaternion(),
-            scale: self.scale,
-            origin: self.origin,
-            skin: 0,
-        }
-    }
-}

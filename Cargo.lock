@@ -899,8 +899,38 @@ dependencies = [
  "serde",
  "static_assertions",
  "thiserror 2.0.11",
- "vdf-reader",
+ "vbsp-entities-tf2",
+ "vdf-reader 0.3.0",
  "zip-lzma",
+]
+
+[[package]]
+name = "vbsp"
+version = "0.7.0"
+source = "git+https://github.com/krakow10/vbsp?rev=06ac1fdd29618db154a81fbc4ceb3cfe558d2671#06ac1fdd29618db154a81fbc4ceb3cfe558d2671"
+dependencies = [
+ "ahash",
+ "arrayvec",
+ "binrw",
+ "bitflags",
+ "bv",
+ "cgmath",
+ "itertools 0.14.0",
+ "lzma-rs",
+ "num_enum",
+ "serde",
+ "static_assertions",
+ "thiserror 2.0.11",
+ "vdf-reader 0.2.0",
+ "zip-lzma",
+]
+
+[[package]]
+name = "vbsp-entities-tf2"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "vbsp 0.7.0 (git+https://github.com/krakow10/vbsp?rev=06ac1fdd29618db154a81fbc4ceb3cfe558d2671)",
 ]
 
 [[package]]
@@ -914,6 +944,19 @@ dependencies = [
  "parse-display",
  "serde",
  "thiserror 1.0.69",
+]
+
+[[package]]
+name = "vdf-reader"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c92e6cbd97e3aefd917c537080b085a4cb926461dddf98daab9a370972ffdfe"
+dependencies = [
+ "logos",
+ "miette",
+ "parse-display",
+ "serde",
+ "thiserror 2.0.11",
 ]
 
 [[package]]
