@@ -920,7 +920,6 @@ dependencies = [
  "binrw",
  "bitflags",
  "bv",
- "cgmath",
  "criterion",
  "itertools 0.14.0",
  "lzma-rs",

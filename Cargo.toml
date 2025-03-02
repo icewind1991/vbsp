@@ -21,7 +21,6 @@ lzma-rs = "0.3.0"
 binrw = "0.14.1"
 static_assertions = "1.1.0"
 num_enum = "0.7.3"
-cgmath = "0.18.0"
 zip = { package = "zip-lzma", version = "0.6.3", default-features = false, features = ["lzma"] }
 itertools = "0.14.0"
 ahash = "0.8.11"
