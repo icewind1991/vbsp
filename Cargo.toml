@@ -9,7 +9,7 @@ license = "MIT"
 edition = "2021"
 readme = "README.md"
 exclude = ["*.bsp"]
-rust-version = "1.74.0"
+rust-version = "1.85.0"
 
 [dependencies]
 arrayvec = "0.7.6"
@@ -31,7 +31,7 @@ vdf-reader = "0.3.0"
 obj = "0.10"
 main_error = "0.1.2"
 criterion = "0.5.1"
-vbsp-entities-tf2 = { version = "0.1.0-egg", path = "../rust/vbsp-entities/tf2" }
+vbsp-entities-tf2 = { version = "0.1.0-egg" }
 
 [profile.dev]
 opt-level = 2

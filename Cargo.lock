@@ -386,6 +386,15 @@ dependencies = [
 
 [[package]]
 name = "itertools"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
@@ -882,6 +891,28 @@ checksum = "7dd6e30e90baa6f72411720665d41d89b9a3d039dc45b8faea1ddd07f617f6af"
 
 [[package]]
 name = "vbsp"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f14a5685e0bb386aac9b9c6046a05152a46a0bc58d53afb3fbe577f1a1c2bb05"
+dependencies = [
+ "ahash",
+ "arrayvec",
+ "binrw",
+ "bitflags",
+ "bv",
+ "cgmath",
+ "itertools 0.13.0",
+ "lzma-rs",
+ "num_enum",
+ "serde",
+ "static_assertions",
+ "thiserror 1.0.69",
+ "vdf-reader 0.2.0",
+ "zip-lzma",
+]
+
+[[package]]
+name = "vbsp"
 version = "0.7.0"
 dependencies = [
  "ahash",
@@ -905,32 +936,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "vbsp"
-version = "0.7.0"
-source = "git+https://github.com/krakow10/vbsp?rev=06ac1fdd29618db154a81fbc4ceb3cfe558d2671#06ac1fdd29618db154a81fbc4ceb3cfe558d2671"
-dependencies = [
- "ahash",
- "arrayvec",
- "binrw",
- "bitflags",
- "bv",
- "cgmath",
- "itertools 0.14.0",
- "lzma-rs",
- "num_enum",
- "serde",
- "static_assertions",
- "thiserror 2.0.11",
- "vdf-reader 0.2.0",
- "zip-lzma",
-]
-
-[[package]]
 name = "vbsp-entities-tf2"
-version = "0.1.0"
+version = "0.1.0-egg"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cdb59144c18adb6e2b62b8ff0fa52aa905267ab151718011398b9dd39f9f8952"
 dependencies = [
  "serde",
- "vbsp 0.7.0 (git+https://github.com/krakow10/vbsp?rev=06ac1fdd29618db154a81fbc4ceb3cfe558d2671)",
+ "vbsp 0.6.0",
 ]
 
 [[package]]
