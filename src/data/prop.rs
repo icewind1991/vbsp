@@ -1,5 +1,5 @@
 use crate::{Handle, StaticPropLump};
-use vbsp_common::{AsPropPlacement, PropPlacement};
+pub use vbsp_common::{AsPropPlacement, PropPlacement};
 
 impl<'a> AsPropPlacement<'a> for Handle<'a, StaticPropLump> {
     fn as_prop_placement(&self) -> PropPlacement<'a> {
