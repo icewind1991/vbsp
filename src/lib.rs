@@ -17,7 +17,7 @@ use lzma_rs::decompress::{Options, UnpackedSize};
 use reader::LumpReader;
 use std::cmp::min;
 use std::io::Read;
-pub use vbsp_common::deserialize_bool;
+pub use vbsp_common::{deserialize_bool, AsPropPlacement};
 
 pub type BspResult<T> = Result<T, BspError>;
 
