@@ -144,7 +144,7 @@ impl BinRead for StaticPropLump {
         args: Self::Args<'static>,
     ) -> BinResult<Self> {
         match args.0 {
-            4..=7 | 10 => {
+            4..=7 | 9 | 10  => {
                 RawStaticPropLump::read_options(reader, endian, (args.0,)).map(StaticPropLump::from)
             }
             version => Err(binrw::Error::Custom {

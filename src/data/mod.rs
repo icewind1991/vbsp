@@ -78,6 +78,7 @@ impl Index<LumpType> for Directories {
 pub enum BspVersion {
     Version19 = 19,
     Version20 = 20,
+    Version21 = 21,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, BinRead)]
