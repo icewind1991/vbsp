@@ -66,18 +66,45 @@ pub struct Directories {
 
 impl Directories {
     pub fn is_l4d2_lump_order(&self, file_size: usize) -> bool {
-        // l4d2 lump headers have the offset where the length is supposed to be and the version where the offset is supposed to be
+        // Heuristic 1: Check lump versions (read into `offset` field assuming standard order).
+        // Real lump versions are small integers (usually 0 or 1).
+        // Real file offsets are usually large and 4-byte aligned.
+        let mut definitely_not_l4d2 = false;
+        let mut maybe_l4d2 = false;
 
-        // since the offset is always a multiple of 4, if we find any offset not a multiple, we can assume the fields are re-ordered
-        if self.entries.iter().any(|lump| lump.offset.rem(4) != 0) {
+        for lump in self.entries.iter() {
+            // If the value read into `offset` is large, it's likely a real offset.
+            // Assume any value > 20 is not a lump version. Max known lump version is much lower.
+            if lump.offset > 20 {
+                definitely_not_l4d2 = true;
+                break; // Can confidently say it's standard order.
+            }
+            // If it's a potential version (<= 20) and it's non-zero and not 4-byte aligned,
+            // it strongly suggests it's a real version read into the wrong field (L4D2 order).
+            if lump.offset != 0 && lump.offset % 4 != 0 {
+                maybe_l4d2 = true;
+            }
+        }
+
+        if definitely_not_l4d2 {
+            return false; // Found strong evidence against L4D2 order.
+        }
+        if maybe_l4d2 {
+            return true; // Found evidence for L4D2 order and no counter-evidence.
+        }
+
+        // Heuristic 2 (Fallback): Check lump offsets (read into `length` field assuming standard order).
+        // If any "length" value is larger than the file size, it's almost certainly a file offset.
+        if self
+            .entries
+            .iter()
+            .any(|lump| lump.length as usize > file_size)
+        {
             return true;
         }
 
-        // if all lump versions happend to be a multiple of 4, the above check can be a false negative, so in addition
-        // we also check if the sum of the length is higher then the size of the file,
-        // which indicates that that field is probably storing the offset instead
-        let size_sum: usize = self.entries.iter().map(|lump| lump.length as usize).sum();
-        size_sum > file_size
+        // If no heuristic triggered, assume standard order.
+        false
     }
 
     pub fn fixup_lumps(&mut self) {
