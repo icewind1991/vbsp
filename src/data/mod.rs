@@ -65,6 +65,20 @@ pub struct Directories {
 }
 
 impl Directories {
+    /// Checks if the lump directory seems to use the L4D2 lump header order.
+    ///
+    /// L4D2 (BSP v21) changed the order of fields in `lump_t` compared to previous versions.
+    /// This function uses heuristics to detect this altered order.
+    /// It should be called only after `Directories` has been read assuming the standard (pre-L4D2) order.
+    ///
+    /// # Arguments
+    ///
+    /// * `file_size` - The total size of the BSP file in bytes. Used by one of the heuristics.
+    ///
+    /// # Returns
+    ///
+    /// * `true` if the L4D2 lump order is detected.
+    /// * `false` if the standard lump order is detected or detection is inconclusive.
     pub fn is_l4d2_lump_order(&self, file_size: usize) -> bool {
         // Heuristic 1: Check lump versions (read into `offset` field assuming standard order).
         // Real lump versions are small integers (usually 0 or 1).
@@ -107,6 +121,10 @@ impl Directories {
         false
     }
 
+    /// Corrects the fields of all `LumpEntry` structs if they were read using the standard
+    /// order but are actually in L4D2 order.
+    ///
+    /// This should only be called after `is_l4d2_lump_order` returns `true`.
     pub fn fixup_lumps(&mut self) {
         self.entries.iter_mut().for_each(LumpEntry::fixup_l4d2)
     }
