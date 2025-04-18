@@ -33,5 +33,4 @@ This project is adapted from the [quake bsp parser] and
 wouldn't be possible without information from the [source engine wiki].
 
 [quake bsp parser]: https://github.com/Vurich/bsp
-
 [source engine wiki]: https://developer.valvesoftware.com/wiki/Source_BSP_File_Format

@@ -1,6 +1,6 @@
 use crate::*;
-use binrw::BinReaderExt;
 use binrw::io::Cursor;
+use binrw::BinReaderExt;
 use std::borrow::Cow;
 
 pub struct BspFile<'a> {
