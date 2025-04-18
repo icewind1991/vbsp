@@ -1,6 +1,6 @@
 use crate::*;
-use binrw::io::Cursor;
 use binrw::BinReaderExt;
+use binrw::io::Cursor;
 use std::borrow::Cow;
 
 pub struct BspFile<'a> {
@@ -20,7 +20,10 @@ impl<'a> BspFile<'a> {
             }
             error => BspError::MalformedData(error),
         })?;
-        let directories = cursor.read_le()?;
+        let mut directories: Directories = cursor.read_le()?;
+        if header.version == BspVersion::Version21 && directories.is_l4d2_lump_order(data.len()) {
+            directories.fixup_lumps();
+        }
 
         Ok(BspFile {
             data,

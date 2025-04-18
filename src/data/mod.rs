@@ -22,11 +22,11 @@ use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::io::{Cursor, Read, Seek};
 use std::mem::size_of;
-use std::ops::Index;
+use std::ops::{Index, Rem};
 use std::sync::Mutex;
 pub use vbsp_common::{Angles, Color, EntityProp, LightColor, Negated, PropPlacement, Vector};
-use zip::result::ZipError;
 use zip::ZipArchive;
+use zip::result::ZipError;
 
 /// Validate that reading the type consumes `size_of::<T>()` bytes
 #[cfg(test)]
@@ -59,9 +59,30 @@ where
     );
 }
 
-#[derive(Clone, BinRead)]
+#[derive(Clone, BinRead, Debug)]
 pub struct Directories {
     entries: [LumpEntry; 64],
+}
+
+impl Directories {
+    pub fn is_l4d2_lump_order(&self, file_size: usize) -> bool {
+        // l4d2 lump headers have the offset where the length is supposed to be and the version where the offset is supposed to be
+
+        // since the offset is always a multiple of 4, if we find any offset not a multiple, we can assume the fields are re-ordered
+        if self.entries.iter().any(|lump| lump.offset.rem(4) != 0) {
+            return true;
+        }
+
+        // if all lump versions happend to be a multiple of 4, the above check can be a false negative, so in addition
+        // we also check if the sum of the length is higher then the size of the file,
+        // which indicates that that field is probably storing the offset instead
+        let size_sum: usize = self.entries.iter().map(|lump| lump.length as usize).sum();
+        size_sum > file_size
+    }
+
+    pub fn fixup_lumps(&mut self) {
+        self.entries.iter_mut().for_each(LumpEntry::fixup_l4d2)
+    }
 }
 
 impl Index<LumpType> for Directories {
@@ -101,6 +122,18 @@ pub struct LumpEntry {
     pub length: u32,
     pub version: u32,
     pub ident: u32,
+}
+
+impl LumpEntry {
+    /// handle l4d2 which uses {version, offset, length, ident} instead
+    pub fn fixup_l4d2(&mut self) {
+        *self = LumpEntry {
+            offset: self.length,
+            length: self.version,
+            version: self.offset,
+            ident: self.ident,
+        }
+    }
 }
 
 #[derive(Debug, Clone, BinRead)]
