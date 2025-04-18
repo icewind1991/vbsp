@@ -2,8 +2,9 @@
 
 Rust parser for valve bsp files.
 
-Currently supports bsp files from Counter Strike Source and Team Fortress 2, other source games using bsp version 19 or
-20 might also work.
+Mainly tested with Team Fortress 2 and Counter Strike Source files, other source games using bsp versions 19, 20 or
+21 might also work.
+
 Adding other sourcemod variants should be fairly straight forward and pull requests for them are welcome.
 
 # Example usage
@@ -32,4 +33,5 @@ This project is adapted from the [quake bsp parser] and
 wouldn't be possible without information from the [source engine wiki].
 
 [quake bsp parser]: https://github.com/Vurich/bsp
+
 [source engine wiki]: https://developer.valvesoftware.com/wiki/Source_BSP_File_Format
