@@ -22,7 +22,7 @@ use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::io::{Cursor, Read, Seek};
 use std::mem::size_of;
-use std::ops::{Index, Rem};
+use std::ops::Index;
 use std::sync::Mutex;
 pub use vbsp_common::{Angles, Color, EntityProp, LightColor, Negated, PropPlacement, Vector};
 use zip::result::ZipError;
