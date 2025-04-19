@@ -22,7 +22,7 @@ use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::io::{Cursor, Read, Seek};
 use std::mem::size_of;
-use std::ops::{Index, Rem};
+use std::ops::Index;
 use std::sync::Mutex;
 pub use vbsp_common::{Angles, Color, EntityProp, LightColor, Negated, PropPlacement, Vector};
 use zip::result::ZipError;
@@ -65,21 +65,61 @@ pub struct Directories {
 }
 
 impl Directories {
+    /// Checks if the lump directory seems to use the L4D2 lump header order.
+    ///
+    /// L4D2 (BSP v21) changed the order of fields in `lump_t` compared to previous versions.
+    /// This function uses heuristics to detect this altered order.
+    /// It should be called only after `Directories` has been read assuming the standard (pre-L4D2) order.
+    ///
+    /// # Arguments
+    ///
+    /// * `file_size` - The total size of the BSP file in bytes. Used by one of the heuristics.
+    ///
+    /// # Returns
+    ///
+    /// * `true` if the L4D2 lump order is detected.
+    /// * `false` if the standard lump order is detected or detection is inconclusive.
     pub fn is_l4d2_lump_order(&self, file_size: usize) -> bool {
-        // l4d2 lump headers have the offset where the length is supposed to be and the version where the offset is supposed to be
+        // Heuristic 1: Check lump versions (read into `offset` field assuming standard order).
+        // Real lump versions are small integers (usually 0 or 1).
+        // Real file offsets are usually large and 4-byte aligned.
+        let mut maybe_l4d2 = false;
 
-        // since the offset is always a multiple of 4, if we find any offset not a multiple, we can assume the fields are re-ordered
-        if self.entries.iter().any(|lump| lump.offset.rem(4) != 0) {
+        for lump in self.entries.iter() {
+            // If the value read into `offset` is large, it's likely a real offset.
+            // Assume any value > 20 is not a lump version. Max known lump version is much lower.
+            if lump.offset > 20 {
+                return false; // Can confidently say it's standard order.
+            }
+            // If it's a potential version (<= 20) and it's non-zero and not 4-byte aligned,
+            // it strongly suggests it's a real version read into the wrong field (L4D2 order).
+            if lump.offset != 0 && lump.offset % 4 != 0 {
+                maybe_l4d2 = true;
+            }
+        }
+
+        if maybe_l4d2 {
+            return true; // Found evidence for L4D2 order and no counter-evidence.
+        }
+
+        // Heuristic 2 (Fallback): Check lump offsets (read into `length` field assuming standard order).
+        // If any "length" value is larger than the file size, it's almost certainly a file offset.
+        if self
+            .entries
+            .iter()
+            .any(|lump| lump.length as usize > file_size)
+        {
             return true;
         }
 
-        // if all lump versions happend to be a multiple of 4, the above check can be a false negative, so in addition
-        // we also check if the sum of the length is higher then the size of the file,
-        // which indicates that that field is probably storing the offset instead
-        let size_sum: usize = self.entries.iter().map(|lump| lump.length as usize).sum();
-        size_sum > file_size
+        // If no heuristic triggered, assume standard order.
+        false
     }
 
+    /// Corrects the fields of all `LumpEntry` structs if they were read using the standard
+    /// order but are actually in L4D2 order.
+    ///
+    /// This should only be called after `is_l4d2_lump_order` returns `true`.
     pub fn fixup_lumps(&mut self) {
         self.entries.iter_mut().for_each(LumpEntry::fixup_l4d2)
     }
