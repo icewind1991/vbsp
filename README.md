@@ -1,3 +1,5 @@
+# Moved to https://codeberg.org/icewind/vbsp
+
 # VBSP
 
 Rust parser for valve bsp files.
